@@ -1,8 +1,9 @@
 # xDev
 bin/
-lib/
 include/
+lib/
 *.exe
-*.zip
+*.out
 *.svg
 *.tar.gz
+*.zip
