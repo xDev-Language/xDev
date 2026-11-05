@@ -1,0 +1,9 @@
+# xDev
+bin/
+include/
+lib/
+*.exe
+*.out
+*.svg
+*.tar.gz
+*.zip

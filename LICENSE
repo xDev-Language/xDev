@@ -1,0 +1,43 @@
+xDev Freeware License
+
+Copyright (c) 2026 Rafał Jopek. All rights reserved.
+
+1. Free use
+   xDev (the compiler, libraries, header files and documentation) may be
+   used free of charge, for any purpose, including commercial use.
+
+2. Your programs are yours
+   Programs created with xDev belong to their authors. The xDev runtime
+   libraries that are linked into such programs may be distributed as part
+   of those programs without any restriction and without the need to
+   mention xDev.
+
+3. Redistribution of xDev
+   You may redistribute the unmodified xDev package free of charge,
+   provided this license is included. Selling xDev or distributing
+   modified versions is not permitted without the author's written consent.
+
+4. Restrictions
+   You may not reverse engineer, decompile or disassemble xDev, except
+   where such restriction is prohibited by applicable law.
+
+5. Third-party components
+   xDev includes third-party components (LLVM, LLD, libc++, mingw-w64,
+   SDL3, GLFW and others) that remain under their own licenses, listed in
+   the lib/licenses/ folder. Nothing in this license limits your rights
+   under those licenses.
+
+   NOTE! The xDev curl library (lib/xdev/libxcurl.a) contains GNU libiconv
+   (LGPL-2.1 or later), libidn2 and libunistring (LGPL-3.0 or later, or
+   GPL-2.0 or later). These components are statically linked into every
+   program that uses the curl functions of xDev. Point 2 does not apply to
+   them. If you distribute such a program, you must comply with the terms
+   of those licenses, in particular include their license texts and allow
+   the recipients to relink your program with modified versions of these
+   libraries, for example by providing the object files of your program.
+   Programs that do not use the curl functions do not contain these
+   components and are covered by point 2 without restriction.
+
+6. No warranty
+   xDev is provided "as is", without warranty of any kind. The author is
+   not liable for any damages arising from its use.
