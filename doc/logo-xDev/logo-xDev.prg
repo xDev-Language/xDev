@@ -11,7 +11,7 @@ PROCEDURE Main()
 
    pSvg := svg_Init( "logo-xDev.svg", nWidth, nHeight )
 
-   svg_Comment( pSvg, "#264d73 #73264d #4d7326 #262773 #267373 #734c26" #e9edf1 )
+   svg_Comment( pSvg, "#070f17 #264d73 #73264d #4d7326 #262773 #267373 #734c26 #e9edf1" )
 
    svg_FilledCircle( pSvg, nWidth / 2, nHeight / 2, 255, "#73264d" )
 
