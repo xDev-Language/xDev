@@ -4,6 +4,8 @@ xDev is a general-purpose programming language that combines the procedural and 
 
 A statically and dynamically typed language for building efficient, modern applications, with built-in data types.
 
+[Read more about xDev](https://github.com/xDev-Language/.github).
+
 ```xBase
 PROCEDURE Main()
 
