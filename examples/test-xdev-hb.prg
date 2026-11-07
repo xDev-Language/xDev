@@ -1,34 +1,24 @@
 /*
- * Prime counting by trial division.
+ * $DOC$
+ * $NAME$
+ * Prime-counting benchmark
  *
- * xDev:     xdev test-xdev-hb.prg
- *           test-xdev-hb.exe 1000000
+ * $ONELINER$
+ * Compares prime counting by trial division across xDev, Harbour, and Python.
  *
- * Harbour:  hbmk2 test-xdev-hb.prg -gc3 -cflag=-O2 -gtstd -otest-hb-c
- *           test-hb-c.exe 1000000
+ * $DESCRIPTION$
+ * Counts primes up to a configurable limit; the default is 500000 and accepted limits are 0 to 10000000. Measurements recorded on 2026-11-06 used an Intel Core i7-13620H on Windows 10 Pro, 64-bit: xDev 0.0.0 (r2026-11-06 10:35), Harbour 3.2.1dev (r2609180937), Clang 22.1.8, and CPython 3.13.11 (MSYS2 CLANG64). At limit 1000000, one warm-up and five sequential runs per variant were timed in rotating order. Median compute times excluding startup and output were xDev 0.420 s, Harbour C 1.124 s, Harbour VM 1.737 s, and Python 1.423 s; whole-process times measured with the same external clock were 0.423, 1.130, 1.742, and 1.443 s. xDev Seconds() has 0.01 s resolution. All variants returned 78498 primes with sum 37550402023, independently checked by sieve. This single integer workload is not a general language-performance comparison.
  *
- * Harbour VM: hbmk2 test-xdev-hb.prg -gtstd -otest-hb-vm
- * Python counterpart: python test-xdev-py.py 1000000
+ * $EXAMPLES$
+ * examples/test-xdev-hb.prg
  *
- * Without an argument the limit is 500000.
+ * $OUTPUT$
+ * Limit: 10000
+ * Primes: 1229
+ * Sum: 5736396
+ * Seconds: 0.000000
  *
- * Measured on 2026-11-06: Intel Core i7-13620H, Windows 10 Pro, 64-bit.
- * xDev 0.0.0 (r2026-11-06 10:35), Harbour 3.2.1dev (r2609180937),
- * Clang 22.1.8, CPython 3.13.11 (MSYS2 CLANG64).
- * Limit: 1000000. One warm-up, then five sequential runs per variant,
- * rotating their order. Median computation times, excluding startup/output:
- *
- *   xDev                         0.420 s
- *   Harbour C (-gc3, -O2)        1.124 s
- *   Harbour VM (default)         1.737 s
- *   CPython 3.13.11              1.423 s
- *
- * All variants: 78498 primes, sum 37550402023; independently checked by sieve.
- * xDev Seconds() resolution: 0.01 s. Median whole-process times measured
- * with the same external clock: 0.423 / 1.130 / 1.742 / 1.443 s respectively.
- *
- * AS declarations give xDev machine integer types. Harbour uses dynamic values.
- * This measures one integer workload, not overall language performance.
+ * $DOCEND$
  */
 
 #ifdef __HARBOUR__

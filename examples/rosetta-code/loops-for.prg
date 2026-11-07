@@ -1,5 +1,25 @@
 /*
+ * $DOC$
+ * $NAME$
  * Loops/For
+ *
+ * $ONELINER$
+ * Demonstrates the Loops/For task.
+ *
+ * $DESCRIPTION$
+ * Implements the Loops/For task in xDev.
+ *
+ * $EXAMPLES$
+ * examples/rosetta-code/loops-for.prg
+ *
+ * $OUTPUT$
+ * *
+ * **
+ * ***
+ * ****
+ * *****
+ *
+ * $DOCEND$
  */
 
 PROCEDURE Main()

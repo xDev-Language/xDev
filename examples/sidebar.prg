@@ -1,5 +1,20 @@
 /*
+ * $DOC$
+ * $NAME$
+ * Terminal sidebar menu
  *
+ * $ONELINER$
+ * Demonstrates a keyboard- and mouse-driven terminal sidebar.
+ *
+ * $DESCRIPTION$
+ * Displays sample business menu items, handles navigation and terminal resizing, and exits on Esc or window close.
+ *
+ * $EXAMPLES$
+ * examples/sidebar.prg
+ *
+ * $OUTPUT$
+ *
+ * $DOCEND$
  */
 
 #include "inkey.ch"

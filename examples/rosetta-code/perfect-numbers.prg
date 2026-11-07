@@ -1,5 +1,25 @@
 /*
+ * $DOC$
+ * $NAME$
  * Perfect numbers
+ *
+ * $ONELINER$
+ * Demonstrates the Perfect numbers task.
+ *
+ * $DESCRIPTION$
+ * Implements the Perfect numbers task in xDev.
+ * Sum of the proper divisors.
+ *
+ * $EXAMPLES$
+ * examples/rosetta-code/perfect-numbers.prg
+ *
+ * $OUTPUT$
+ * 6
+ * 28
+ * 496
+ * 8128
+ *
+ * $DOCEND$
  */
 
 PROCEDURE Main()
@@ -17,8 +37,6 @@ PROCEDURE Main()
 STATIC FUNCTION IsPerfect( n AS INT ) AS LOGIC
 
    RETURN n > 1 .AND. DivisorSum( n ) == n
-
-// sum of the proper divisors
 STATIC FUNCTION DivisorSum( n AS INT ) AS INT
 
    LOCAL nSum AS INT := 1

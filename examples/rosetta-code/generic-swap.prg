@@ -1,5 +1,22 @@
 /*
+ * $DOC$
+ * $NAME$
  * Generic swap
+ *
+ * $ONELINER$
+ * Demonstrates the Generic swap task.
+ *
+ * $DESCRIPTION$
+ * Implements the Generic swap task in xDev.
+ * Parameters passed by reference (@) may hold any type.
+ *
+ * $EXAMPLES$
+ * examples/rosetta-code/generic-swap.prg
+ *
+ * $OUTPUT$
+ * two 1
+ *
+ * $DOCEND$
  */
 
 PROCEDURE Main()
@@ -11,8 +28,6 @@ PROCEDURE Main()
    QOut( a, b )
 
    RETURN
-
-// parameters passed by reference (@) may hold any type
 STATIC PROCEDURE Swap( x, y )
 
    LOCAL t := x

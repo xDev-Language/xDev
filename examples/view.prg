@@ -1,5 +1,20 @@
 /*
+ * $DOC$
+ * $NAME$
+ * Text file viewer
  *
+ * $ONELINER$
+ * Demonstrates browsing a text file in the terminal.
+ *
+ * $DESCRIPTION$
+ * Opens the file passed on the command line and lets the user browse its contents.
+ *
+ * $EXAMPLES$
+ * examples/view.prg
+ *
+ * $OUTPUT$
+ *
+ * $DOCEND$
  */
 
 #include "fileio.ch"

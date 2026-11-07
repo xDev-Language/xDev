@@ -11,9 +11,9 @@ PROCEDURE Main()
 
    pSvg := svg_Init( "logo-xDev.svg", nWidth, nHeight )
 
-   svg_Comment( pSvg, "#070f17 #264d73 #73264d #4d7326 #262773 #267373 #734c26 #e9edf1" )
+   svg_Comment( pSvg, "0x070f17 0x264d73 0x73264d 0x4d7326 0x262773 0x267373 0x734c26 0xe9edf1" )
 
-   svg_FilledCircle( pSvg, nWidth / 2, nHeight / 2, 255, "#73264d" )
+   svg_FilledCircle( pSvg, nWidth / 2, nHeight / 2, 255, "#73264d" )`
 
    svg_Line( pSvg, 42, ( nHeight - 250 ) / 2, nWidth - 42, ( nHeight - 250 ) / 2, 30, "#323232" )
 
@@ -23,7 +23,8 @@ PROCEDURE Main()
 
    svg_Circle( pSvg, nWidth / 2, nHeight / 2, 256 - 15, 30, "#323232" )
 
-   svg_Text( pSvg, ( nWidth - 4 * ( 110 * 0.8 ) ) / 2 + 25, ( nHeight + 40 ) / 2, "xDev", "Times New Roman", 140, FONT_WEIGHT_BOLD, "#0C0C0C" )
+   svg_Text( pSvg, ( nWidth - 4 * ( 110 * 0.8 ) ) / 2 + 25, ( nHeight + 40 ) / 2, ;
+            "xDev", "Times New Roman", 140, FONT_WEIGHT_BOLD, "#0C0C0C" )
 
    svg_Close( pSvg )
 

@@ -1,12 +1,30 @@
 /*
+ * $DOC$
+ * $NAME$
  * Exceptions
+ *
+ * $ONELINER$
+ * Demonstrates the Exceptions task.
+ *
+ * $DESCRIPTION$
+ * Implements the Exceptions task in xDev.
+ * Break() throws any value, RECOVER USING catches it.
+ * A runtime error becomes an exception when the error block calls Break().
+ *
+ * $EXAMPLES$
+ * examples/rosetta-code/exceptions.prg
+ *
+ * $OUTPUT$
+ * Before
+ * Caught: an exception from deep inside
+ * Caught runtime error: Zero divisor
+ *
+ * $DOCEND$
  */
 
 PROCEDURE Main()
 
    LOCAL xError
-
-   // Break() throws any value, RECOVER USING catches it
    BEGIN SEQUENCE
       QOut( "Before" )
       s_Risky( 2 )
@@ -14,8 +32,6 @@ PROCEDURE Main()
    RECOVER USING xError
       QOut( "Caught: " + xError )
    END SEQUENCE
-
-   // a runtime error becomes an exception when the error block calls Break()
    ErrorBlock( {| oError | Break( oError ) } )
    BEGIN SEQUENCE
       QOut( 1 / 0 )

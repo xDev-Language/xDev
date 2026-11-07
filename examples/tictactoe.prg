@@ -1,4 +1,23 @@
 /*
+ * $DOC$
+ * $NAME$
+ * Tic-tac-toe
+ *
+ * $ONELINER$
+ * Demonstrates a two-player or computer tic-tac-toe game.
+ *
+ * $DESCRIPTION$
+ * Choose Play with computer or Play with friend, then play on the terminal board. Esc or closing the window ends the game.
+ *
+ * $EXAMPLES$
+ * examples/tictactoe.prg
+ *
+ * $OUTPUT$
+ *
+ * $DOCEND$
+ */
+
+/*
  * Copyright 2017-2026 Rafał Jopek
  */
 

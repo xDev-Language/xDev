@@ -1,5 +1,49 @@
 /*
+ * $DOC$
+ * $NAME$
+ * OpenSSL cryptography
  *
+ * $ONELINER$
+ * Demonstrates hashes, encodings, encryption, key generation, and signatures.
+ *
+ * $DESCRIPTION$
+ * Uses the xDev OpenSSL library for SHA and HMAC digests, Base64 and hexadecimal conversion, random bytes, AES, RSA, and digital signatures. Also demonstrates error reporting for invalid inputs.
+ *
+ * $EXAMPLES$
+ * examples/openssl.prg
+ *
+ * $OUTPUT$
+ * Version: OpenSSL 3.6.0 1 Oct 2025
+ *
+ * SHA256('abc'): ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad
+ *   expected:    ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad
+ * HMAC-SHA256:   f7bc83f430538424b13298e6aa6fb143ef4d59a14946175997479dbc2d1a3cd8
+ *   expected:    f7bc83f430538424b13298e6aa6fb143ef4d59a14946175997479dbc2d1a3cd8
+ * Base64: S3Jha8Ozdw== -> Kraków
+ *   expected: S3Jha8Ozdw== -> Kraków
+ * Hex: 41:5A -> AZ
+ * SHA512 length: 64
+ * Unknown digest: NIL / unknown digest algorithm
+ *
+ * Random 32 bytes: 32, different: yes
+ *
+ * AES-256-CBC: 48 bytes, back: OK
+ * AES-256-GCM: 60 bytes, back: OK
+ * GCM damaged: NIL / GCM tag does not match: wrong key or damaged data
+ * Bad key: NIL / key must have 16, 24 or 32 bytes and the mode must be AES_MODE_*
+ *
+ * RSA keys: -----BEGIN PRIVATE KEY----- / -----BEGIN PUBLIC KEY-----
+ * RSA-OAEP-SHA256: 256 bytes, back: OK
+ * RSA-PKCS1: back: OK
+ * Wrong padding: NIL / error:02000079:rsa routines::oaep decoding error
+ *
+ * Signature: 256 bytes
+ * Verify: valid
+ * Verify changed text: invalid
+ * PSS verify: valid
+ * Bad key: NIL / error:0688010A:asn1 encoding routines::nested asn1 error
+ *
+ * $DOCEND$
  */
 
 #include "openssl.ch"

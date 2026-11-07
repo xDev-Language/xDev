@@ -1,5 +1,23 @@
 /*
+ * $DOC$
+ * $NAME$
  * Caesar cipher
+ *
+ * $ONELINER$
+ * Demonstrates the Caesar cipher task.
+ *
+ * $DESCRIPTION$
+ * Implements the Caesar cipher task in xDev.
+ *
+ * $EXAMPLES$
+ * examples/rosetta-code/caesar-cipher.prg
+ *
+ * $OUTPUT$
+ * The quick brown fox Jumped over the lazy Dog
+ * Esp bftnv mczhy qzi Ufxapo zgpc esp wlkj Ozr
+ * The quick brown fox Jumped over the lazy Dog
+ *
+ * $DOCEND$
  */
 
 PROCEDURE Main()

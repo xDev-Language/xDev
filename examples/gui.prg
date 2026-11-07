@@ -1,7 +1,20 @@
 /*
- * A window of the GUI library with a menu, a status bar with a clock and a background that changes colour.
- * The menu shows bWhen: "Stop colours" and "Start colours" are active by turns. Build with:
- *    xdev gui.prg --windows
+ * $DOC$
+ * $NAME$
+ * GUI menu window
+ *
+ * $ONELINER$
+ * Demonstrates a GUI window with a menu, status clock, and changing background.
+ *
+ * $DESCRIPTION$
+ * The menu alternates the availability of Stop colours and Start colours actions. Build for Windows with the --windows option.
+ *
+ * $EXAMPLES$
+ * examples/gui.prg
+ *
+ * $OUTPUT$
+ *
+ * $DOCEND$
  */
 
 PROCEDURE Main()

@@ -1,5 +1,21 @@
 /*
+ * $DOC$
+ * $NAME$
+ * Smiley interpreter
  *
+ * $ONELINER$
+ * Demonstrates evaluating a small Smiley-language program.
+ *
+ * $DESCRIPTION$
+ * Runs a sample program in the Smiley interpreter and reports the value left in its accumulator.
+ *
+ * $EXAMPLES$
+ * examples/smiley.prg
+ *
+ * $OUTPUT$
+ * The program "+ + * 😃 - /" calculates the value 7.5
+ *
+ * $DOCEND$
  */
 
 PROCEDURE Main()

@@ -1,5 +1,43 @@
 /*
+ * $DOC$
+ * $NAME$
  * Integer overflow
+ *
+ * $ONELINER$
+ * Demonstrates the Integer overflow task.
+ *
+ * $DESCRIPTION$
+ * Implements the Integer overflow task in xDev.
+ * A typed integer never wraps around: a result outside its range raises a runtime error.
+ *
+ * $EXAMPLES$
+ * examples/rosetta-code/integer-overflow.prg
+ *
+ * $OUTPUT$
+ * 32-bit signed
+ *    -(-2147483647-1)                            -> Value outside declared type range
+ *    2000000000 + 2000000000                     -> Value outside declared type range
+ *    -2147483647 - 2147483647                    -> Value outside declared type range
+ *    46341 * 46341                               -> Value outside declared type range
+ *    (-2147483647-1) / -1                        -> Value outside declared type range
+ * 64-bit signed
+ *    -(-9223372036854775807-1)                   -> Value outside declared type range
+ *    5000000000000000000 + 5000000000000000000   -> Value outside declared type range
+ *    -9223372036854775807 - 9223372036854775807  -> Value outside declared type range
+ *    3037000500 * 3037000500                     -> Value outside declared type range
+ *    (-9223372036854775807-1) / -1               -> Value outside declared type range
+ * 32-bit unsigned
+ *    -4294967295                                 -> Value outside declared type range
+ *    3000000000 + 3000000000                     -> Value outside declared type range
+ *    2147483647 - 4294967295                     -> Value outside declared type range
+ *    65537 * 65537                               -> Value outside declared type range
+ * 64-bit unsigned
+ *    -18446744073709551615                       -> Value outside declared type range
+ *    10000000000000000000 + 10000000000000000000 -> Value outside declared type range
+ *    9223372036854775807 - 18446744073709551615  -> Value outside declared type range
+ *    4294967296 * 4294967296                     -> Value outside declared type range
+ *
+ * $DOCEND$
  */
 
 PROCEDURE Main()
@@ -36,8 +74,6 @@ PROCEDURE Main()
    s_Try( "4294967296 * 4294967296", {|| u64 := 4294967296 * 4294967296 } )
 
    RETURN
-
-// a typed integer never wraps around: a result outside its range raises a runtime error
 STATIC PROCEDURE s_Try( cText AS STRING, bAction AS CODEBLOCK )
 
    LOCAL bError := ErrorBlock( {| oError | Break( oError ) } )

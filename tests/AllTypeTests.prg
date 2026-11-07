@@ -1,8 +1,65 @@
 /*
- * Every type declared with AS (constitution, point 3.d): integer types with range and overflow
- * checks, floating point, CAST, mixed signed and unsigned arithmetic, STRING, LOGIC, DATE, ARRAY,
- * HASH, CODEBLOCK, OBJECT, PTR, ANY, typed parameters and results, and runtime checks of ANY.
- * Compile errors cannot be checked in a running program; this file must compile.
+ * $DOC$
+ * $NAME$
+ * All type tests
+ *
+ * $ONELINER$
+ * Tests xDev's declared types, type conversions, and typed functions.
+ *
+ * $DESCRIPTION$
+ * Exercises integer and floating-point types, CAST, mixed signed and unsigned arithmetic, STRING, LOGIC, DATE, ARRAY, HASH, CODEBLOCK, OBJECT, PTR, ANY, typed parameters and results, and runtime type checks. Compile-time errors cannot be tested at runtime, so this test also verifies that the file compiles.
+ *
+ * $EXAMPLES$
+ * tests/AllTypeTests.prg
+ *
+ * $OUTPUT$
+ * INT8 maximum                  OK
+ * INT8 overflow is an error     OK
+ * UINT8 maximum                 OK
+ * UINT8 below zero is an error  OK
+ * INT16 minimum                 OK
+ * INT32 maximum                 OK
+ * INT32 + UINT32 gives INT64    OK
+ * INT is INT64, exact           OK
+ * UINT64 maximum as text        OK
+ * CAST truncates toward zero    OK
+ * CAST out of range is an error OK
+ * ANY with text -> INT error    OK
+ * FLOAT64 keeps 0.1             OK
+ * FLOAT32 rounds 0.1            OK
+ * FLOAT is FLOAT64              OK
+ * INT / INT gives a fraction    OK
+ * STRING counts bytes           OK
+ * LOGIC                         OK
+ * DATE without a value is empty OK
+ * DATE arithmetic               OK
+ * ARRAY with a numeric index    OK
+ * CODEBLOCK                     OK
+ * OBJECT message                OK
+ * PTR without a value is NIL    OK
+ * ANY changes its type          OK
+ * ANY: nested character keys    OK
+ * HASH: character key           OK
+ * HASH: numeric key             OK
+ * HASH: date key                OK
+ * HASH: nested hashes           OK
+ * HSet() and HGet()             OK
+ * HDel() and HHasKey()          OK
+ * Len() of an empty literal     OK
+ * FOR EACH over HASH            OK
+ * detached HASH in a code block OK
+ * STATIC AS HASH                OK
+ * HASH -> ANY                   OK
+ * ANY -> HASH                   OK
+ * NIL -> HASH                   OK
+ * ANY with text -> HASH error   OK
+ * typed parameters and result   OK
+ * HASH result of a function     OK
+ * @ reference to HASH parameter OK
+ * @ reference to INT parameter  OK
+ * function without AS           OK
+ *
+ * $DOCEND$
  */
 
 STATIC s_hCache AS HASH

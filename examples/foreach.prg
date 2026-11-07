@@ -1,5 +1,32 @@
 /*
+ * $DOC$
+ * $NAME$
+ * FOR EACH iteration
  *
+ * $ONELINER$
+ * Demonstrates FOR EACH over arrays, hash maps, and strings.
+ *
+ * $DESCRIPTION$
+ * Shows parallel array iteration, :__enumIndex and :__enumKey, LOOP, changing an array through its element variable, and in-place string updates with @ and DESCEND.
+ *
+ * $EXAMPLES$
+ * examples/foreach.prg
+ *
+ * $OUTPUT$
+ * FOR EACH w xDev
+ *
+ * 1. chleb     4.50
+ * 2. mleko     3.20
+ * 3. masło    8.99
+ * Z VAT:   5.54  3.94 11.06
+ *
+ * chleb: 10
+ * mleko: brak
+ * masło: 4 (ostatni)
+ *
+ * Kod: AB/12/CD  od końca: DC/21/BA
+ *
+ * $DOCEND$
  */
 
 PROCEDURE Main()

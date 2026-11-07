@@ -1,4 +1,23 @@
 /*
+ * $DOC$
+ * $NAME$
+ * Greed game
+ *
+ * $ONELINER$
+ * Demonstrates an interactive game on a resizable terminal screen.
+ *
+ * $DESCRIPTION$
+ * Move across the game board and collect numbered fields. The game ends when the player crosses the board.
+ *
+ * $EXAMPLES$
+ * examples/greed.prg
+ *
+ * $OUTPUT$
+ *
+ * $DOCEND$
+ */
+
+/*
  * Copyright 2017-2026 Rafał Jopek
  */
 

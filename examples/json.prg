@@ -1,5 +1,40 @@
 /*
+ * $DOC$
+ * $NAME$
+ * JSON and hash maps
  *
+ * $ONELINER$
+ * Demonstrates parsing, building, and serializing JSON data.
+ *
+ * $DESCRIPTION$
+ * Pokazuje odczyt zagnieżdżonych obiektów JSON jako haszmap, budowę zapytania z haszmapy, zachowanie kolejności kluczy, obsługę Unicode i emoji oraz błąd parsowania.
+ *
+ * $EXAMPLES$
+ * examples/json.prg
+ *
+ * $OUTPUT$
+ * JSON w xDev
+ *
+ * referenceNumber: 20261030-AU-1A2B3C
+ * token:           eyJhbGciOi
+ * code:            200 (N)
+ * ok:              tak
+ * kwota:            1234.56
+ * uwagi:           U
+ *
+ * {"challenge":"20261030-CR-77","contextIdentifier":{"type":"Nip","value":"1234567890"},"encryptedToken":"c2VrcmV0","daty":["2026-11-07",null],"liczby":[1,-2,3.5,0.3333333333333333]}
+ *
+ * {
+ *   "firma": "Zakład \"Pod Lipą\"",
+ *   "linie": "a\nb",
+ *   "lista": []
+ * }
+ *
+ * Unicode: Zażółć gęślą jaźń 😀
+ * Tam i z powrotem: OK
+ * Błędny JSON: U, expected a key in quotes at position 11
+ *
+ * $DOCEND$
  */
 
 PROCEDURE Main()

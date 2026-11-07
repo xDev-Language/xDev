@@ -1,5 +1,27 @@
 /*
+ * $DOC$
+ * $NAME$
  * Stack
+ *
+ * $ONELINER$
+ * Demonstrates the Stack task.
+ *
+ * $DESCRIPTION$
+ * Implements the Stack task in xDev.
+ * Pop() and Top() require a non-empty stack.
+ *
+ * $EXAMPLES$
+ * examples/rosetta-code/stack.prg
+ *
+ * $OUTPUT$
+ * top:   3
+ * pop:   3
+ * pop:   two
+ * empty: .F.
+ * pop:   1
+ * empty: .T.
+ *
+ * $DOCEND$
  */
 
 PROCEDURE Main()
@@ -41,8 +63,6 @@ METHOD Push( xValue ) CLASS Stack
    AAdd( ::items, xValue )
 
    RETURN Self
-
-// Pop() and Top() require a non-empty stack.
 METHOD Pop() CLASS Stack
 
    LOCAL xValue := ATail( ::items )

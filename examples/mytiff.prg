@@ -1,5 +1,20 @@
 /*
+ * $DOC$
+ * $NAME$
+ * MyTIFF GUI window
  *
+ * $ONELINER$
+ * Demonstrates creating a window with MyTIFF widgets.
+ *
+ * $DESCRIPTION$
+ * Initializes a MyTIFF application and creates a shell containing a label and Quit button. Activating the button exits the event loop.
+ *
+ * $EXAMPLES$
+ * examples/mytiff.prg
+ *
+ * $OUTPUT$
+ *
+ * $DOCEND$
  */
 
 #include "mytiff.ch"

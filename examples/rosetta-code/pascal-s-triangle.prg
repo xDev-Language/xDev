@@ -1,5 +1,31 @@
 /*
+ * $DOC$
+ * $NAME$
  * Pascal's triangle
+ *
+ * $ONELINER$
+ * Demonstrates the Pascal's triangle task.
+ *
+ * $DESCRIPTION$
+ * Implements the Pascal's triangle task in xDev.
+ * Prints nothing when nRows <= 0.
+ *
+ * $EXAMPLES$
+ * examples/rosetta-code/pascal-s-triangle.prg
+ *
+ * $OUTPUT$
+ *                      1
+ *                    1   1
+ *                  1   2   1
+ *                1   3   3   1
+ *              1   4   6   4   1
+ *            1   5  10  10   5   1
+ *          1   6  15  20  15   6   1
+ *        1   7  21  35  35  21   7   1
+ *      1   8  28  56  70  56  28   8   1
+ *    1   9  36  84 126 126  84  36   9   1
+ *
+ * $DOCEND$
  */
 
 PROCEDURE Main()
@@ -7,8 +33,6 @@ PROCEDURE Main()
    Pascal( 10 )
 
    RETURN
-
-// Prints nothing when nRows <= 0.
 STATIC PROCEDURE Pascal( nRows AS INT )
 
    LOCAL aRow := { 1 }

@@ -1,4 +1,23 @@
 /*
+ * $DOC$
+ * $NAME$
+ * Snake game
+ *
+ * $ONELINER$
+ * Demonstrates an interactive Snake game in the terminal.
+ *
+ * $DESCRIPTION$
+ * Control the snake, collect food, and avoid collisions. The program reports duration and final snake length when the game ends.
+ *
+ * $EXAMPLES$
+ * examples/snake.prg
+ *
+ * $OUTPUT$
+ *
+ * $DOCEND$
+ */
+
+/*
  * Copyright 2017-2026 Rafał Jopek
  */
 

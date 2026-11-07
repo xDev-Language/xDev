@@ -1,5 +1,20 @@
 /*
+ * $DOC$
+ * $NAME$
+ * GET input screen
  *
+ * $ONELINER$
+ * Demonstrates terminal GET fields, validation, pictures, and resize handling.
+ *
+ * $DESCRIPTION$
+ * Displays editable UTF-8 text, phone, code, number, date, logical, and note fields. Shows VALID, RANGE, WHEN, and picture clauses. Esc finishes input; any key closes the result screen.
+ *
+ * $EXAMPLES$
+ * examples/get.prg
+ *
+ * $OUTPUT$
+ *
+ * $DOCEND$
  */
 
 #include "std.ch"

@@ -1,5 +1,20 @@
 /*
- * tbrowse.prg
+ * $DOC$
+ * $NAME$
+ * TBrowse table browser
+ *
+ * $ONELINER$
+ * Demonstrates browsing tabular data with TBrowse.
+ *
+ * $DESCRIPTION$
+ * Creates sample table data and displays it with TBrowse controls in the terminal.
+ *
+ * $EXAMPLES$
+ * examples/tbrowse.prg
+ *
+ * $OUTPUT$
+ *
+ * $DOCEND$
  */
 
 #include "inkey.ch"

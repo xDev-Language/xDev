@@ -1,5 +1,22 @@
 /*
+ * $DOC$
+ * $NAME$
  * Levenshtein distance
+ *
+ * $ONELINER$
+ * Demonstrates the Levenshtein distance task.
+ *
+ * $DESCRIPTION$
+ * Implements the Levenshtein distance task in xDev.
+ *
+ * $EXAMPLES$
+ * examples/rosetta-code/levenshtein-distance.prg
+ *
+ * $OUTPUT$
+ * kitten -> sitting:      3
+ * rosettacode -> raisethysword: 8
+ *
+ * $DOCEND$
  */
 
 PROCEDURE Main()

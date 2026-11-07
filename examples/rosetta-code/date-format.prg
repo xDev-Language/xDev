@@ -1,5 +1,22 @@
 /*
+ * $DOC$
+ * $NAME$
  * Date format
+ *
+ * $ONELINER$
+ * Demonstrates the Date format task.
+ *
+ * $DESCRIPTION$
+ * Implements the Date format task in xDev.
+ *
+ * $EXAMPLES$
+ * examples/rosetta-code/date-format.prg
+ *
+ * $OUTPUT$
+ * 2026-11-07
+ * Saturday, November 7, 2026
+ *
+ * $DOCEND$
  */
 
 PROCEDURE Main()

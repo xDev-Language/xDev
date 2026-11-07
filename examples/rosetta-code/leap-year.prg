@@ -1,5 +1,26 @@
 /*
+ * $DOC$
+ * $NAME$
  * Leap year
+ *
+ * $ONELINER$
+ * Demonstrates the Leap year task.
+ *
+ * $DESCRIPTION$
+ * Implements the Leap year task in xDev.
+ *
+ * $EXAMPLES$
+ * examples/rosetta-code/leap-year.prg
+ *
+ * $OUTPUT$
+ * 1900 is not a leap year
+ * 1994 is not a leap year
+ * 1996 is a leap year
+ * 2000 is a leap year
+ * 2024 is a leap year
+ * 2100 is not a leap year
+ *
+ * $DOCEND$
  */
 
 PROCEDURE Main()

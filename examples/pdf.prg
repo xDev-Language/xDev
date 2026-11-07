@@ -1,5 +1,54 @@
 /*
+ * $DOC$
+ * $NAME$
+ * PDF invoice example
  *
+ * $ONELINER$
+ * Demonstrates creating and saving an invoice PDF with libharu.
+ *
+ * $DESCRIPTION$
+ * Builds a sample invoice using UTF-8 text and a TrueType font. Requires libharu and the configured system font.
+ *
+ * $EXAMPLES$
+ * examples/pdf.prg
+ *
+ * $OUTPUT$
+ * Error after HPDF_New: 0
+ * Font: ArialMT
+ * Page: 595.276000976562 x 841.890014648438
+ * TextRect bytes written: 144
+ * QR: 45 x 45 modules
+ * MeasureText bytes: 26, width 77.2200012207031
+ * TextWidth: 29.4400005340576
+ * Line width: 0.5
+ * RGB fill: { 0 0 0 }
+ * Save: 0
+ * GetContents: 0, 61320 bytes, starts with %PDF-1.3
+ *
+ * QR of '123' (version 1, numeric):
+ * ##############  ##########  ##############
+ * ##          ##    ##  ##    ##          ##
+ * ##  ######  ##    ####      ##  ######  ##
+ * ##  ######  ##    ######    ##  ######  ##
+ * ##  ######  ##      ##  ##  ##  ######  ##
+ * ##          ##        ####  ##          ##
+ * ##############  ##  ##  ##  ##############
+ *                 ##########
+ * ####  ####  ##    ####  ##  ##          ##
+ * ######  ####            ##  ##  ##  ####
+ *     ####  ########        ####  ######
+ * ##  ########  ##    ####          ########
+ *     ######  ##########      ##    ####  ##
+ *                 ##########    ##  ##  ####
+ * ##############      ##  ##########      ##
+ * ##          ##        ######  ######    ##
+ * ##  ######  ##  ##  ######  ####  ####  ##
+ * ##  ######  ##  ##  ######      ######
+ * ##  ######  ##    ####      ##      ######
+ * ##          ##  ##  ##    ####  ##  ##  ##
+ * ##############  ####  ##          ######
+ *
+ * $DOCEND$
  */
 
 #include "hpdf.ch"

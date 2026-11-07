@@ -1,5 +1,25 @@
 /*
+ * $DOC$
+ * $NAME$
  * Palindrome detection
+ *
+ * $ONELINER$
+ * Demonstrates the Palindrome detection task.
+ *
+ * $DESCRIPTION$
+ * Implements the Palindrome detection task in xDev.
+ * Letters only, case ignored.
+ *
+ * $EXAMPLES$
+ * examples/rosetta-code/palindrome-detection.prg
+ *
+ * $OUTPUT$
+ * "racecar"                           is a palindrome
+ * "rotor"                             is a palindrome
+ * "xDev"                              is not a palindrome
+ * "A man, a plan, a canal: Panama!"   is a palindrome
+ *
+ * $DOCEND$
  */
 
 PROCEDURE Main()
@@ -11,8 +31,6 @@ PROCEDURE Main()
    NEXT
 
    RETURN
-
-// letters only, case ignored
 STATIC FUNCTION IsPalindrome( cText AS STRING ) AS LOGIC
 
    LOCAL cLetters AS STRING := ""

@@ -1,15 +1,20 @@
 /*
- * xListen - reader of radio telescope filterbank (.fil) files
+ * $DOC$
+ * $NAME$
+ * xListen filterbank viewer
  *
- * Sample file to download (64 MB, a recording of the Voyager 1 probe signal):
- *    http://blpd0.ssl.berkeley.edu/Voyager_data/Voyager1.single_coarse.fine_res.fil
+ * $ONELINER$
+ * Visualizes spectra and waterfalls from radio-telescope filterbank files.
  *
- * Build and run:
- *    xdev xlisten.prg
- *    xlisten Voyager1.single_coarse.fine_res.fil
+ * $DESCRIPTION$
+ * Reads .fil data. Arrow keys move between spectra, Home and End select the first and last spectrum, W toggles the waterfall, I shows the header, and Esc exits. A 64 MB Voyager 1 sample is available at http://blpd0.ssl.berkeley.edu/Voyager_data/Voyager1.single_coarse.fine_res.fil.
  *
- * Keys: arrows - next spectrum, Home/End - first and last spectrum,
- *       W - waterfall, I - file header, Esc - exit.
+ * $EXAMPLES$
+ * examples/xlisten.prg
+ *
+ * $OUTPUT$
+ *
+ * $DOCEND$
  */
 
 #include "std.ch"

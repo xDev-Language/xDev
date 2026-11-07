@@ -1,5 +1,21 @@
 /*
+ * $DOC$
+ * $NAME$
+ * PDF invoice generator
  *
+ * $ONELINER$
+ * Generates a sample Polish invoice as a PDF document.
+ *
+ * $DESCRIPTION$
+ * Builds an invoice with line items, VAT totals, Polish currency formatting, amount in words, and a KSeF QR code. Requires the PDF and QR-code libraries and a usable TrueType font.
+ *
+ * $EXAMPLES$
+ * examples/invoice.prg
+ *
+ * $OUTPUT$
+ * invoice.pdf saved, amount due 3 838,35 PLN
+ *
+ * $DOCEND$
  */
 
 #include "hpdf.ch"

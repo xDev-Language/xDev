@@ -1,4 +1,23 @@
 /*
+ * $DOC$
+ * $NAME$
+ * Falling squares game
+ *
+ * $ONELINER$
+ * Demonstrates an interactive falling-blocks game in the terminal.
+ *
+ * $DESCRIPTION$
+ * Play using the keyboard. The game redraws when the terminal is resized.
+ *
+ * $EXAMPLES$
+ * examples/squares.prg
+ *
+ * $OUTPUT$
+ *
+ * $DOCEND$
+ */
+
+/*
  * Copyright 2017-2026 Rafał Jopek
  */
 

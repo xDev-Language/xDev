@@ -1,5 +1,24 @@
 /*
+ * $DOC$
+ * $NAME$
  * Temperature conversion
+ *
+ * $ONELINER$
+ * Demonstrates the Temperature conversion task.
+ *
+ * $DESCRIPTION$
+ * Implements the Temperature conversion task in xDev.
+ *
+ * $EXAMPLES$
+ * examples/rosetta-code/temperature-conversion.prg
+ *
+ * $OUTPUT$
+ * K    21.00
+ * C  -252.15
+ * F  -421.87
+ * R    37.80
+ *
+ * $DOCEND$
  */
 
 PROCEDURE Main()

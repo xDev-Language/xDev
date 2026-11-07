@@ -1,5 +1,83 @@
 /*
+ * $DOC$
+ * $NAME$
+ * XML processing
  *
+ * $ONELINER$
+ * Demonstrates XML parsing, DOM operations, and serialization.
+ *
+ * $DESCRIPTION$
+ * Runs XML examples using the xDev XML library and writes the results to a text report.
+ *
+ * $EXAMPLES$
+ * examples/xml.prg
+ *
+ * $OUTPUT$
+ * <?xml version="1.0" encoding="UTF-8"?>
+ * <library city="Kraków">
+ *   <book id="1">
+ *     <title>Pan Tadeusz</title>
+ *     <author>Adam Mickiewicz</author>
+ *   </book>
+ *   <book id="2">
+ *     <title>Lalka &amp; &lt;Emancypantki&gt;</title>
+ *     <author>Bolesław Prus</author>
+ *     <borrowed/>
+ *   </book>
+ * </library>
+ *
+ * City: Kraków
+ * First title: Pan Tadeusz
+ * Second title: Lalka & <Emancypantki>
+ * Books: 2
+ * Last book id: 2
+ * Before last: 1
+ * Missing: NIL
+ *
+ * 1 Pan Tadeusz - Adam Mickiewicz
+ * 2 Lalka & <Emancypantki> - Bolesław Prus (borrowed)
+ *
+ * Tree:
+ * a x=1 [<raw>]
+ *   b [text & A]
+ *   c
+ *
+ * Errors:
+ * NIL line 1: expected </b>
+ * NIL line 2: invalid entity reference
+ * NIL line 1: more than one root element
+ * NIL line 1: unsupported encoding, only UTF-8 is accepted
+ * NIL line 1: invalid element name
+ * NIL line 1: ']]>' in text
+ *
+ * Namespaces:
+ * inv | Invoice | urn:invoice
+ * inv:Line | urn:invoice
+ * Note | urn:default
+ *
+ * Editing:
+ * Move d to front: OK
+ * Move list into a: refused
+ * <list><d/><a/><b/><c/><a/></list>
+ *
+ * Node types:
+ * 2  [Hello ]
+ * 1 b [big]
+ * 2  [ world]
+ * 4  [ c ]
+ * 3  [x<y]
+ * 5 php [echo 1]
+ * Text: Hello  worldx<y
+ * <?xml version="1.0" encoding="UTF-8"?>
+ * <!-- top -->
+ * <p>Hello <b>big</b> world<!-- c --><![CDATA[x<y]]><?php echo 1?></p>
+ * AddPI xml refused: yes
+ * Text at document level refused: yes
+ * <?xml version="1.0" encoding="UTF-8"?>
+ * <!--generated - - by xDev-->
+ * <note>a <![CDATA[]]]]><![CDATA[>]]><?app mode=1?></note>
+ *
+ * $DOCEND$
  */
 
 STATIC cReport := ""

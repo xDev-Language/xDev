@@ -1,5 +1,25 @@
 /*
+ * $DOC$
+ * $NAME$
  * Binary search
+ *
+ * $ONELINER$
+ * Demonstrates the Binary search task.
+ *
+ * $DESCRIPTION$
+ * Implements the Binary search task in xDev.
+ * Returns the position, or 0 when the value is not there.
+ *
+ * $EXAMPLES$
+ * examples/rosetta-code/binary-search.prg
+ *
+ * $OUTPUT$
+ *  2 -> 1
+ * 23 -> 9
+ * 47 -> 15
+ * 24 -> 0
+ *
+ * $DOCEND$
  */
 
 PROCEDURE Main()
@@ -12,8 +32,6 @@ PROCEDURE Main()
    NEXT
 
    RETURN
-
-// returns the position, or 0 when the value is not there
 STATIC FUNCTION BinarySearch( aList AS ARRAY, xValue ) AS INT
 
    LOCAL nLow  AS INT := 1

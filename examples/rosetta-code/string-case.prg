@@ -1,5 +1,23 @@
 /*
+ * $DOC$
+ * $NAME$
  * String case
+ *
+ * $ONELINER$
+ * Demonstrates the String case task.
+ *
+ * $DESCRIPTION$
+ * Implements the String case task in xDev.
+ *
+ * $EXAMPLES$
+ * examples/rosetta-code/string-case.prg
+ *
+ * $OUTPUT$
+ * ALPHABETA
+ * alphabeta
+ * AlphaBETA
+ *
+ * $DOCEND$
  */
 
 PROCEDURE Main()

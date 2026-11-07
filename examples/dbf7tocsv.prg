@@ -1,8 +1,21 @@
 /*
- * DBF to CSV conversion:  dbf7tocsv file.dbf [file.csv]
- * Reads xbase 7 and classic DBF with DBT, FPT or SMT memo. Writes CSV in UTF-8 with ";" separator,
- * for spreadsheets. Without the second parameter the CSV file takes the table name. Deleted
- * records are skipped. Exit code (the value returned by Main): 0 success, 1 error.
+ * $DOC$
+ * $NAME$
+ * DBF to CSV converter
+ *
+ * $ONELINER$
+ * Converts a DBF table and its memo data to a spreadsheet-ready CSV file.
+ *
+ * $DESCRIPTION$
+ * Reads xBase 7 and classic DBF files with DBT, FPT, or SMT memo fields. Writes UTF-8 CSV using semicolons, skips deleted records, and returns 0 on success or 1 on error. The output path is optional.
+ *
+ * $EXAMPLES$
+ * examples/dbf7tocsv.prg
+ *
+ * $OUTPUT$
+ * Zapisano 3 rekordy do faktury.csv
+ *
+ * $DOCEND$
  */
 
 #include "set.ch"

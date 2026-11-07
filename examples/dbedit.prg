@@ -1,5 +1,20 @@
 /*
+ * $DOC$
+ * $NAME$
+ * DBEdit browser
  *
+ * $ONELINER$
+ * Demonstrates editing a DBF table in the terminal with DBEdit.
+ *
+ * $DESCRIPTION$
+ * Creates a temporary table, displays sample records and a calculated gross-amount column. Navigate with the arrows, Page Up/Page Down, or mouse; press F10 to finish.
+ *
+ * $EXAMPLES$
+ * examples/dbedit.prg
+ *
+ * $OUTPUT$
+ *
+ * $DOCEND$
  */
 
 #include "inkey.ch"

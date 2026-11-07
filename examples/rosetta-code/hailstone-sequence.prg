@@ -1,5 +1,22 @@
 /*
+ * $DOC$
+ * $NAME$
  * Hailstone sequence
+ *
+ * $ONELINER$
+ * Demonstrates the Hailstone sequence task.
+ *
+ * $DESCRIPTION$
+ * Implements the Hailstone sequence task in xDev.
+ *
+ * $EXAMPLES$
+ * examples/rosetta-code/hailstone-sequence.prg
+ *
+ * $OUTPUT$
+ * hailstone(27) has 112 elements: 27, 82, 41, 124, ..., 8, 4, 2, 1
+ * The longest sequence below 100000 starts at 77031 and has 351 elements
+ *
+ * $DOCEND$
  */
 
 PROCEDURE Main()

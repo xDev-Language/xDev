@@ -1,5 +1,25 @@
 /*
+ * $DOC$
+ * $NAME$
  * XML/Input
+ *
+ * $ONELINER$
+ * Demonstrates the XML/Input task.
+ *
+ * $DESCRIPTION$
+ * Implements the XML/Input task in xDev.
+ *
+ * $EXAMPLES$
+ * examples/rosetta-code/xml-input.prg
+ *
+ * $OUTPUT$
+ * April
+ * Bob
+ * Chad
+ * Dave
+ * Émily
+ *
+ * $DOCEND$
  */
 
 PROCEDURE Main()

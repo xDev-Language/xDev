@@ -1,5 +1,21 @@
 /*
+ * $DOC$
+ * $NAME$
  * Sorting algorithms/Quicksort
+ *
+ * $ONELINER$
+ * Demonstrates the Sorting algorithms/Quicksort task.
+ *
+ * $DESCRIPTION$
+ * Implements the Sorting algorithms/Quicksort task in xDev.
+ *
+ * $EXAMPLES$
+ * examples/rosetta-code/sorting-algorithms-quicksort.prg
+ *
+ * $OUTPUT$
+ * -7 0 2 5 13 13 41 65 77 98
+ *
+ * $DOCEND$
  */
 
 PROCEDURE Main()

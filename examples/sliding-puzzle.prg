@@ -1,4 +1,23 @@
 /*
+ * $DOC$
+ * $NAME$
+ * Sliding puzzle game
+ *
+ * $ONELINER$
+ * Demonstrates an interactive sliding puzzle on a resizable terminal screen.
+ *
+ * $DESCRIPTION$
+ * Move tiles into the empty position to solve the puzzle. The program reports elapsed time and move count when the game ends.
+ *
+ * $EXAMPLES$
+ * examples/sliding-puzzle.prg
+ *
+ * $OUTPUT$
+ *
+ * $DOCEND$
+ */
+
+/*
  * Copyright 2017-2026 Rafał Jopek
  */
 

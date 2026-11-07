@@ -1,5 +1,21 @@
 /*
+ * $DOC$
+ * $NAME$
+ * libcurl HTTP client
  *
+ * $ONELINER$
+ * Demonstrates HTTP requests, response inspection, and file download with libcurl.
+ *
+ * $DESCRIPTION$
+ * Performs GET and POST requests, inspects response status and headers, then downloads a page with progress reporting. Requires the xDev curl library and network access.
+ *
+ * $EXAMPLES$
+ * examples/curl.prg
+ *
+ * $OUTPUT$
+ * Results saved to curl.txt
+ *
+ * $DOCEND$
  */
 
 #include "curl.ch"

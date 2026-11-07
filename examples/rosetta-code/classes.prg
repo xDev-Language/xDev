@@ -1,5 +1,24 @@
 /*
+ * $DOC$
+ * $NAME$
  * Classes
+ *
+ * $ONELINER$
+ * Demonstrates the Classes task.
+ *
+ * $DESCRIPTION$
+ * Implements the Classes task in xDev.
+ * A square is a rectangle with equal sides.
+ *
+ * $EXAMPLES$
+ * examples/rosetta-code/classes.prg
+ *
+ * $OUTPUT$
+ * circle       3.142
+ * rectangle   12.000
+ * square       4.000
+ *
+ * $DOCEND$
  */
 
 PROCEDURE Main()
@@ -76,8 +95,6 @@ METHOD Name() CLASS Rectangle
 METHOD Area() CLASS Rectangle
 
    RETURN ::width * ::height
-
-// a square is a rectangle with equal sides
 CREATE CLASS Square FROM Rectangle
 
    METHOD New( nSide )

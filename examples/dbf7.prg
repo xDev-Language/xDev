@@ -1,8 +1,36 @@
 /*
- * xbase 7 table: field names longer than 10 characters, DBT memo and Polish characters.
- * The program creates faktury.dbf and faktury.dbt, writes a few records and prints them again
- * after reopening the file. The files can be checked in another program that reads xbase 7 tables
- * (CP852 encoding).
+ * $DOC$
+ * $NAME$
+ * xBase 7 table
+ *
+ * $ONELINER$
+ * Demonstrates xBase 7 field names, memo data, and Polish text.
+ *
+ * $DESCRIPTION$
+ * Creates faktury.dbf and faktury.dbt with field names longer than 10 characters, Polish text, and memo data, then reopens and prints the records. The files use CP852.
+ *
+ * $EXAMPLES$
+ * examples/dbf7.prg
+ *
+ * $OUTPUT$
+ * Pola tabeli faktury.dbf:
+ *   NUMER_FAKTURY                    C 15 0
+ *   NAZWA_ODBIORCY                   C 40 0
+ *   MIEJSCOWOSC_ODBIORCY             C 20 0
+ *   DATA_WYSTAWIENIA                 D 8 0
+ *   KWOTA_NETTO_RAZEM_ZA_FAKTURE     N 12 2
+ *   ZAPLACONO                        L 1 0
+ *   TERMIN_PLATNOSCI_W_DNIACH        N 3 0
+ *   UWAGI_DO_FAKTURY                 M 10 0
+ *
+ * FV/1/2026 Kowalski i Wspólnicy sp. j. Warszawa 11/06/26 1250.5 zapłacono 14 dni
+ *   Uwagi: Dostawa częściowa, reszta w grudniu.
+ * FV/2/2026 Zakład Usług Wiśniewski Gdańsk 11/05/26 8400 do zapłaty 30 dni
+ *   Uwagi: (brak)
+ * FV/3/2026 Łódzka Spółdzielnia Pracy Łódź 11/04/26 99.99 zapłacono 7 dni
+ *   Uwagi: Długa uwaga do faktury. Długa uwaga do faktury. Długa uwa
+ *
+ * $DOCEND$
  */
 
 PROCEDURE Main()

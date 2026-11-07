@@ -1,3 +1,23 @@
+/*
+ * $DOC$
+ * $NAME$
+ * Greeting class
+ *
+ * $ONELINER$
+ * Demonstrates a class with a constructor and instance methods.
+ *
+ * $DESCRIPTION$
+ * Defines Greeting, whose New() method sets its name and whose Show() method displays a greeting.
+ *
+ * $EXAMPLES$
+ * examples/class.prg
+ *
+ * $OUTPUT$
+ * Hello from xDev!
+ *
+ * $DOCEND$
+ */
+
 PROCEDURE Main()
 
    LOCAL oGreeting := Greeting():New( "xDev" )

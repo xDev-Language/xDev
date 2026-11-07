@@ -1,5 +1,20 @@
 /*
+ * $DOC$
+ * $NAME$
+ * Text editor
  *
+ * $ONELINER$
+ * Demonstrates editing a text file in the terminal.
+ *
+ * $DESCRIPTION$
+ * Opens the requested file for editing and offers to create it if it does not exist.
+ *
+ * $EXAMPLES$
+ * examples/xedit.prg
+ *
+ * $OUTPUT$
+ *
+ * $DOCEND$
  */
 
 #include "gtinfo.ch"

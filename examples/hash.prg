@@ -1,5 +1,38 @@
 /*
+ * $DOC$
+ * $NAME$
+ * Hash maps
  *
+ * $ONELINER$
+ * Demonstrates creating, searching, copying, merging, and deleting hash-map entries.
+ *
+ * $DESCRIPTION$
+ * Pokazuje dodawanie kluczy przez przypisanie, wyszukiwanie kluczy i wartości, porównywanie bez uwzględniania wielkości liter, kopię niezależną i przez referencję, łączenie map oraz pobieranie kluczy i wartości jako tablic.
+ *
+ * $EXAMPLES$
+ * examples/hash.prg
+ *
+ * $OUTPUT$
+ * Haszmapy w xDev
+ *
+ * Pozycji: 4, typ: H
+ *  1. chleb       4.50
+ *  2. mleko       3.20
+ *  3. masło      8.99
+ *  4. ser        12.40
+ *    Razem:     29.09
+ *
+ * Cena 3.20 ma: mleko
+ * Pierwsze droższe niż 10: ser
+ * Jest mleko? tak
+ * CHLEB:  4.50
+ *
+ * Chleb w oryginale:  4.50, w kopii:  5.00
+ * Po HMerge: 5 pozycji, chleb  4.80
+ * Po HDel masła: 4 pozycji
+ * Klucze: chleb mleko ser jajka
+ *
+ * $DOCEND$
  */
 
 #include "hash.ch"

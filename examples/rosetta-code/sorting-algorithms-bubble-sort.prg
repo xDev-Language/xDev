@@ -1,5 +1,21 @@
 /*
+ * $DOC$
+ * $NAME$
  * Sorting algorithms/Bubble sort
+ *
+ * $ONELINER$
+ * Demonstrates the Sorting algorithms/Bubble sort task.
+ *
+ * $DESCRIPTION$
+ * Implements the Sorting algorithms/Bubble sort task in xDev.
+ *
+ * $EXAMPLES$
+ * examples/rosetta-code/sorting-algorithms-bubble-sort.prg
+ *
+ * $OUTPUT$
+ * -7 0 2 5 13 13 41 65 77 98
+ *
+ * $DOCEND$
  */
 
 PROCEDURE Main()

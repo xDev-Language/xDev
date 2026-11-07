@@ -1,5 +1,23 @@
 /*
+ * $DOC$
+ * $NAME$
  * Greatest common divisor
+ *
+ * $ONELINER$
+ * Demonstrates the Greatest common divisor task.
+ *
+ * $DESCRIPTION$
+ * Implements the Greatest common divisor task in xDev.
+ *
+ * $EXAMPLES$
+ * examples/rosetta-code/greatest-common-divisor.prg
+ *
+ * $OUTPUT$
+ * 21
+ * 34
+ * 6
+ *
+ * $DOCEND$
  */
 
 PROCEDURE Main()

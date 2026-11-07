@@ -1,5 +1,24 @@
 /*
+ * $DOC$
+ * $NAME$
  * Ackermann function
+ *
+ * $ONELINER$
+ * Demonstrates the Ackermann function task.
+ *
+ * $DESCRIPTION$
+ * Implements the Ackermann function task in xDev.
+ *
+ * $EXAMPLES$
+ * examples/rosetta-code/ackermann-function.prg
+ *
+ * $OUTPUT$
+ *     1    2    3    4    5    6    7
+ *     2    3    4    5    6    7    8
+ *     3    5    7    9   11   13   15
+ *     5   13   29   61  125  253  509
+ *
+ * $DOCEND$
  */
 
 PROCEDURE Main()

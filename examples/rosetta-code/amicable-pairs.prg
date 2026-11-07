@@ -1,5 +1,29 @@
 /*
+ * $DOC$
+ * $NAME$
  * Amicable pairs
+ *
+ * $ONELINER$
+ * Demonstrates the Amicable pairs task.
+ *
+ * $DESCRIPTION$
+ * Implements the Amicable pairs task in xDev.
+ * Sum of the proper divisors.
+ *
+ * $EXAMPLES$
+ * examples/rosetta-code/amicable-pairs.prg
+ *
+ * $OUTPUT$
+ *   220    284
+ *  1184   1210
+ *  2620   2924
+ *  5020   5564
+ *  6232   6368
+ * 10744  10856
+ * 12285  14595
+ * 17296  18416
+ *
+ * $DOCEND$
  */
 
 PROCEDURE Main()
@@ -15,8 +39,6 @@ PROCEDURE Main()
    NEXT
 
    RETURN
-
-// sum of the proper divisors
 STATIC FUNCTION s_DivisorSum( n AS INT ) AS INT
 
    LOCAL nSum AS INT := 1

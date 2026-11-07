@@ -1,5 +1,23 @@
 /*
+ * $DOC$
+ * $NAME$
  * Reverse a string
+ *
+ * $ONELINER$
+ * Demonstrates the Reverse a string task.
+ *
+ * $DESCRIPTION$
+ * Implements the Reverse a string task in xDev.
+ * ULen() and USubStr() count UTF-8 characters, not bytes.
+ *
+ * $EXAMPLES$
+ * examples/rosetta-code/reverse-a-string.prg
+ *
+ * $OUTPUT$
+ * fdsa
+ * ńźaj ąlśęg ćłóżaZ
+ *
+ * $DOCEND$
  */
 
 PROCEDURE Main()
@@ -8,8 +26,6 @@ PROCEDURE Main()
    QOut( Reverse( "Zażółć gęślą jaźń" ) )
 
    RETURN
-
-// ULen() and USubStr() count UTF-8 characters, not bytes
 STATIC FUNCTION Reverse( cText AS STRING ) AS STRING
 
    LOCAL cResult AS STRING := ""

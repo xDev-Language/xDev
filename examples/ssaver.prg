@@ -1,5 +1,20 @@
 /*
+ * $DOC$
+ * $NAME$
+ * Bouncing circles screensaver
  *
+ * $ONELINER$
+ * Demonstrates an animated terminal screensaver with colored circles.
+ *
+ * $DESCRIPTION$
+ * Animates circles across the terminal, redraws on resize, and uses RGB values to create rainbow hues.
+ *
+ * $EXAMPLES$
+ * examples/ssaver.prg
+ *
+ * $OUTPUT$
+ *
+ * $DOCEND$
  */
 
 #include "gfxdef.ch"

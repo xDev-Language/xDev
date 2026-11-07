@@ -1,5 +1,21 @@
 /*
+ * $DOC$
+ * $NAME$
+ * PDF artwork
  *
+ * $ONELINER$
+ * Demonstrates colorful vector artwork and effects in a PDF.
+ *
+ * $DESCRIPTION$
+ * Uses libharu to draw geometric patterns, curves, translucent fills, and color effects.
+ *
+ * $EXAMPLES$
+ * examples/pdfart.prg
+ *
+ * $OUTPUT$
+ * pdfart.pdf saved
+ *
+ * $DOCEND$
  */
 
 #include "hpdf.ch"

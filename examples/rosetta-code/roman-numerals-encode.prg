@@ -1,5 +1,25 @@
 /*
+ * $DOC$
+ * $NAME$
  * Roman numerals/Encode
+ *
+ * $ONELINER$
+ * Demonstrates the Roman numerals/Encode task.
+ *
+ * $DESCRIPTION$
+ * Implements the Roman numerals/Encode task in xDev.
+ *
+ * $EXAMPLES$
+ * examples/rosetta-code/roman-numerals-encode.prg
+ *
+ * $OUTPUT$
+ * 1990 = MCMXC
+ * 2008 = MMVIII
+ * 1666 = MDCLXVI
+ * 2026 = MMXXVI
+ * 3999 = MMMCMXCIX
+ *
+ * $DOCEND$
  */
 
 PROCEDURE Main()

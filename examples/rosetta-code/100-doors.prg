@@ -1,5 +1,21 @@
 /*
+ * $DOC$
+ * $NAME$
  * 100 doors
+ *
+ * $ONELINER$
+ * Demonstrates the 100 doors task.
+ *
+ * $DESCRIPTION$
+ * Implements the 100 doors task in xDev.
+ *
+ * $EXAMPLES$
+ * examples/rosetta-code/100-doors.prg
+ *
+ * $OUTPUT$
+ * Open doors: 1 4 9 16 25 36 49 64 81 100
+ *
+ * $DOCEND$
  */
 
 PROCEDURE Main()
