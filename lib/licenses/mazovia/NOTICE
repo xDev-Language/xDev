@@ -1,0 +1,10 @@
+MAZOVIA / Mazovia
+
+Status: brak licencji — nie ustalono licencji źródła mapowania Mazovia.
+
+Tabela jest lokalnym odtworzeniem klasycznej Mazovii. Bazowe mapowanie CP437
+pochodzi z Unicode.org i podlega licencji w ../unicode/LICENSE. Pochodzenie
+i licencja danych o pozycjach znaków polskich wymagają potwierdzenia.
+
+To informacja o nieustalonym statusie, a nie udzielenie licencji.
+Pozostałe mapowania (CP437, CP852, ISO-8859-2, CP1250) pochodzą z Unicode.org.

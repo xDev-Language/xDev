@@ -1,7 +1,8 @@
 # xDev
 bin/
 include/
-lib/
+lib/*
+!lib/licenses/
 *.exe
 *.out
 *.svg
