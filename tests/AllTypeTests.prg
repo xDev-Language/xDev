@@ -10,7 +10,6 @@
  * Exercises integer and floating-point types, CAST, mixed signed and unsigned arithmetic, STRING, LOGIC, DATE, ARRAY, HASH, CODEBLOCK, OBJECT, PTR, ANY, typed parameters and results, and runtime type checks. Compile-time errors cannot be tested at runtime, so this test also verifies that the file compiles.
  *
  * $EXAMPLES$
- * tests/AllTypeTests.prg
  *
  * $OUTPUT$
  * INT8 maximum                  OK
@@ -58,6 +57,8 @@
  * @ reference to HASH parameter OK
  * @ reference to INT parameter  OK
  * function without AS           OK
+ *
+ * $IMAGE$
  *
  * $DOCEND$
  */
@@ -108,10 +109,10 @@ STATIC PROCEDURE s_Floats()
    LOCAL f   AS FLOAT   := 1.5
    LOCAL n   AS INT     := 3
 
-   Check( "FLOAT64 keeps 0.1          ", f64 == 0.1, .T. )
-   Check( "FLOAT32 rounds 0.1         ", f32 == 0.1, .F. )
-   Check( "FLOAT is FLOAT64           ", f * 2, 3.0 )
-   Check( "INT / INT gives a fraction ", n / 2, 1.5 )
+   Check( "FLOAT64 keeps 0.1             ", f64 == 0.1, .T. )
+   Check( "FLOAT32 rounds 0.1            ", f32 == 0.1, .F. )
+   Check( "FLOAT is FLOAT64              ", f * 2, 3.0 )
+   Check( "INT / INT gives a fraction    ", n / 2, 1.5 )
 
 RETURN
 

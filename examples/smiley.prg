@@ -8,6 +8,8 @@
  *
  * $DESCRIPTION$
  * Runs a sample program in the Smiley interpreter and reports the value left in its accumulator.
+ * On Windows, test in Windows PowerShell using a terminal and font that support emoji.
+ * Emoji display.
  *
  * $EXAMPLES$
  * examples/smiley.prg

@@ -13,7 +13,7 @@ PROCEDURE Main()
 
    svg_Comment( pSvg, "0x070f17 0x264d73 0x73264d 0x4d7326 0x262773 0x267373 0x734c26 0xe9edf1" )
 
-   svg_FilledCircle( pSvg, nWidth / 2, nHeight / 2, 255, "#73264d" )`
+   svg_FilledCircle( pSvg, nWidth / 2, nHeight / 2, 255, "#73264d" )
 
    svg_Line( pSvg, 42, ( nHeight - 250 ) / 2, nWidth - 42, ( nHeight - 250 ) / 2, 30, "#323232" )
 

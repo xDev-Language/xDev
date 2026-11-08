@@ -5,6 +5,5 @@ lib/
 *.exe
 *.out
 *.svg
-!examples/logo-xDev/logo-xDev.svg
 *.tar.gz
 *.zip
