@@ -19,7 +19,6 @@
  */
 
 #include "curl.ch"
-#include "std.ch"
 
 STATIC s_cReport   := ""
 STATIC s_nProgress := 0
@@ -131,8 +130,7 @@ PROCEDURE Main()
    FWrite( nFile, s_cReport )
    FClose( nFile )
 
-   ? "Results saved to curl.txt"
-
+   QOut( "Results saved to curl.txt" )
    RETURN
 
 STATIC PROCEDURE s_Line( cText )

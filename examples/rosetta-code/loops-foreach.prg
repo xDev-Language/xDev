@@ -8,8 +8,8 @@
  *
  * $DESCRIPTION$
  * Implements the Loops/Foreach task in xDev.
- * An array; :__enumIndex is the position.
- * A hash; :__enumKey is the key.
+ * An array; :enumIndex is the position.
+ * A hash; :enumKey is the key.
  * The characters of a string, backwards.
  *
  * $EXAMPLES$
@@ -33,10 +33,10 @@ PROCEDURE Main()
    LOCAL hStock := { "apple" => 10, "banana" => 0, "cherry" => 4 }
    LOCAL cFruit, nCount, c
    FOR EACH cFruit IN aFruit
-      QOut( LTrim( Str( cFruit:__enumIndex ) ) + ". " + cFruit )
+      QOut( LTrim( Str( cFruit:enumIndex ) ) + ". " + cFruit )
    NEXT
    FOR EACH nCount IN hStock
-      QOut( nCount:__enumKey + ": " + LTrim( Str( nCount ) ) )
+      QOut( nCount:enumKey + ": " + LTrim( Str( nCount ) ) )
    NEXT
    QOut( "" )
    FOR EACH c IN "xDev" DESCEND

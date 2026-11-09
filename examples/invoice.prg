@@ -20,7 +20,6 @@
 
 #include "hpdf.ch"
 #include "qrcode.ch"
-#include "std.ch"
 
 #if OS_LINUX
    #define FONT_REGULAR  "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
@@ -95,9 +94,9 @@ PROCEDURE Main()
    s_Footer( pPage )
 
    IF HPDF_SaveToFile( pPdf, "invoice.pdf" ) == HPDF_OK
-      ? "invoice.pdf saved, amount due " + s_Money( nGross ) + " PLN"
+      QOut( "invoice.pdf saved, amount due " + s_Money( nGross ) + " PLN" )
    ELSE
-      ? "invoice.pdf not saved, libharu error " + LTrim( Str( HPDF_GetError( pPdf ) ) )
+      QOut( "invoice.pdf not saved, libharu error " + LTrim( Str( HPDF_GetError( pPdf ) ) ) )
    ENDIF
 
    HPDF_Free( pPdf )

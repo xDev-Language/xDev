@@ -19,7 +19,6 @@
  */
 
 #include "hpdf.ch"
-#include "std.ch"
 
 #if OS_LINUX
    #define FONT_FILE  "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
@@ -55,9 +54,9 @@ PROCEDURE Main()
    s_Screensaver()
 
    IF HPDF_SaveToFile( s_pPdf, "pdfart.pdf" ) == HPDF_OK
-      ? "pdfart.pdf saved"
+      QOut( "pdfart.pdf saved" )
    ELSE
-      ? "pdfart.pdf not saved, libharu error " + LTrim( Str( HPDF_GetError( s_pPdf ) ) )
+      QOut( "pdfart.pdf not saved, libharu error " + LTrim( Str( HPDF_GetError( s_pPdf ) ) ) )
    ENDIF
 
    HPDF_Free( s_pPdf )

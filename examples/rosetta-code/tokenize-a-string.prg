@@ -25,7 +25,7 @@ PROCEDURE Main()
    LOCAL cWord
 
    FOR EACH cWord IN aWords
-      cResult += cWord + IIF( cWord:__enumIsLast, "", "." )
+      cResult += cWord + IIF( cWord:enumIsLast, "", "." )
    NEXT
    QOut( cResult )
 

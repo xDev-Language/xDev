@@ -229,7 +229,7 @@ FUNCTION WelcomeScreen()
          Scroll()
          DispBegin()
          FOR EACH cLine IN aLogo
-            DispOutAt( nRow + cLine:__enumIndex - 1, 0, PadC( cLine, nMaxCol ), NToColor( RandomInt( 0x1, 0xf ) ) )
+            DispOutAt( nRow + cLine:enumIndex - 1, 0, PadC( cLine, nMaxCol ), NToColor( RandomInt( 0x1, 0xf ) ) )
          NEXT
 
          DispOutAt( nRow + 16, 0, UPadC( "Copyright 2017-2026 Rafał Jopek", nMaxCol ), NToColor( 0x8 ) )
@@ -291,7 +291,7 @@ PROCEDURE Display( nRow, nCol, aArray )
 
    FOR EACH row IN aArray
       FOR EACH col IN row
-         DispOutAt( row:__enumIndex - 1, col:__enumIndex - 1, LTrim( Str( col[ 1 ] ) ), NToColor( col[ 2 ] ) )
+         DispOutAt( row:enumIndex - 1, col:enumIndex - 1, LTrim( Str( col[ 1 ] ) ), NToColor( col[ 2 ] ) )
       NEXT
    NEXT
    DispOutAt( nRow - 1, nCol - 1, "☺", NToColor( aArray[ nRow ][ nCol ][ 2 ] ) )

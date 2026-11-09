@@ -91,7 +91,7 @@ FUNCTION WelcomeScreen()
          Scroll()
          DispBegin()
          FOR EACH cLine IN aLogo
-            DispOutAt( nRow + cLine:__enumIndex - 1, 0, PadC( cLine, nMaxCol ), NToColor( RandomInt( 0x1, 0xf ) ) )
+            DispOutAt( nRow + cLine:enumIndex - 1, 0, PadC( cLine, nMaxCol ), NToColor( RandomInt( 0x1, 0xf ) ) )
          NEXT
          DispEnd()
 

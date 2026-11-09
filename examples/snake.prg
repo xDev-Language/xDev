@@ -166,7 +166,7 @@ METHOD WelcomeScreen() CLASS Snake
          Scroll()
          DispBegin()
          FOR EACH cLine IN aLogo
-            DispOutAt( nRow + cLine:__enumIndex - 1, 0, PadC( cLine, nMaxCol ), NToColor( RandomInt( 0x1, 0xf ) ) )
+            DispOutAt( nRow + cLine:enumIndex - 1, 0, PadC( cLine, nMaxCol ), NToColor( RandomInt( 0x1, 0xf ) ) )
          NEXT
 
          DispOutAt( nRow + 16, 0, UPadC( "Copyright 2017-2026 Rafał Jopek", nMaxCol ), NToColor( 0x8 ) )

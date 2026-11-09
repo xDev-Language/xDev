@@ -7,7 +7,7 @@
  * Demonstrates FOR EACH over arrays, hash maps, and strings.
  *
  * $DESCRIPTION$
- * Shows parallel array iteration, :__enumIndex and :__enumKey, LOOP, changing an array through its element variable, and in-place string updates with @ and DESCEND.
+ * Shows parallel array iteration, :enumIndex and :enumKey, LOOP, changing an array through its element variable, and in-place string updates with @ and DESCEND.
  *
  * $EXAMPLES$
  * examples/foreach.prg
@@ -40,9 +40,9 @@ PROCEDURE Main()
    QOut( "FOR EACH w xDev" )
    QOut( "" )
 
-   // dwie tablice naraz, :__enumIndex to numer pozycji
+   // dwie tablice naraz, :enumIndex to numer pozycji
    FOR EACH cNazwa, nCena IN aNazwa, aCena
-      QOut( Str( cNazwa:__enumIndex, 1 ) + ". " + PadR( cNazwa, 8 ) + Str( nCena, 6, 2 ) )
+      QOut( Str( cNazwa:enumIndex, 1 ) + ". " + PadR( cNazwa, 8 ) + Str( nCena, 6, 2 ) )
    NEXT
 
    // zmienna to element tablicy: przypisanie zmienia tablicę
@@ -52,13 +52,13 @@ PROCEDURE Main()
    QOut( "Z VAT: " + Str( aCena[ 1 ], 6, 2 ) + Str( aCena[ 2 ], 6, 2 ) + Str( aCena[ 3 ], 6, 2 ) )
    QOut( "" )
 
-   // haszmapa: :__enumKey to klucz, LOOP pomija pozycję
+   // haszmapa: :enumKey to klucz, LOOP pomija pozycję
    FOR EACH nIlosc IN hStan
       IF nIlosc == 0
-         QOut( nIlosc:__enumKey + ": brak" )
+         QOut( nIlosc:enumKey + ": brak" )
          LOOP
       ENDIF
-      QOut( nIlosc:__enumKey + ": " + LTrim( Str( nIlosc ) ) + IIF( nIlosc:__enumIsLast, " (ostatni)", "" ) )
+      QOut( nIlosc:enumKey + ": " + LTrim( Str( nIlosc ) ) + IIF( nIlosc:enumIsLast, " (ostatni)", "" ) )
    NEXT
    QOut( "" )
 

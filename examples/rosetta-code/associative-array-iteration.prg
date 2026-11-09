@@ -38,7 +38,7 @@ PROCEDURE Main()
 
    hCapital[ "Peru" ] := "Lima"
    FOR EACH cCity IN hCapital
-      QOut( PadR( cCity:__enumKey, 8 ) + "-> " + cCity )
+      QOut( PadR( cCity:enumKey, 8 ) + "-> " + cCity )
    NEXT
    HEval( hCapital, {| cKey, cValue | QOut( cKey + ": " + cValue ) } )
    QOut( "" )

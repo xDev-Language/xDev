@@ -17,7 +17,6 @@
  * $DOCEND$
  */
 
-#include "std.ch"
 #include "inkey.ch"
 #include "setcurs.ch"
 #include "gtinfo.ch"
@@ -48,15 +47,15 @@ PROCEDURE Main()
    GtInfo( GTI_RESIZEBLOCK, {|| s_DrawScreen() } )
    s_DrawScreen()
 
-   @  3, 22 GET cName
-   @  4, 22 GET cCity    VALID ! Empty( cCity )
-   @  5, 22 GET cPhone   PICTURE "@R 999-999-999"
-   @  6, 22 GET cCode    PICTURE "@K!"
-   @  7, 22 GET nAmount  PICTURE "999,999.99"
-   @  8, 22 GET nCount   RANGE 1, 99
-   @  9, 22 GET dDate
-   @ 10, 22 GET lActive  PICTURE "Y"
-   @ 11, 22 GET cNote    WHEN lActive
+   GetAdd( GetList,  3, 22, @cName )
+   GetAdd( GetList,  4, 22, @cCity, , {|| ! Empty( cCity ) } )
+   GetAdd( GetList,  5, 22, @cPhone, "@R 999-999-999" )
+   GetAdd( GetList,  6, 22, @cCode, "@K!" )
+   GetAdd( GetList,  7, 22, @nAmount, "999,999.99" )
+   GetAdd( GetList,  8, 22, @nCount, , {| oGet | RangeCheck( oGet, , 1, 99 ) } )
+   GetAdd( GetList,  9, 22, @dDate )
+   GetAdd( GetList, 10, 22, @lActive, "Y" )
+   GetAdd( GetList, 11, 22, @cNote, , , {|| lActive } )
 
    lSaved := ReadModal( GetList )
    GetList := {}

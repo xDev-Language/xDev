@@ -47,7 +47,6 @@
  */
 
 #include "openssl.ch"
-#include "std.ch"
 
 STATIC s_cReport := ""
 
@@ -109,8 +108,7 @@ PROCEDURE Main()
    FWrite( nFile, s_cReport )
    FClose( nFile )
 
-   ? "Results saved to openssl.txt"
-
+   QOut( "Results saved to openssl.txt" )
    RETURN
 
 STATIC PROCEDURE s_Line( cText )

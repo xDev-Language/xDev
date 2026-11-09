@@ -17,7 +17,6 @@
  * $DOCEND$
  */
 
-#include "std.ch"
 #include "fileio.ch"
 #include "inkey.ch"
 #include "setcurs.ch"
@@ -122,8 +121,7 @@ PROCEDURE Main( cFileName )
 // Show the header of the file as text and wait for a key
 STATIC PROCEDURE ShowHeader( oFil AS OBJECT, cFileName AS STRING )
 
-   CLS
-
+   Cls()
    QOut( "xListen - " + cFileName )
    QOut( "" )
    QOut( "Source         " + oFil:sourceName )
@@ -143,8 +141,7 @@ STATIC PROCEDURE ShowHeader( oFil AS OBJECT, cFileName AS STRING )
 
    Inkey( 0, INKEY_KEYBOARD )
 
-   CLS
-
+   Cls()
    RETURN
 
 // Draw the spectrum or the waterfall

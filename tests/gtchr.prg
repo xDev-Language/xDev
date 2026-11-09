@@ -17,7 +17,6 @@
  */
 
 #include "inkey.ch"
-#include "std.ch"
 #include "gtinfo.ch"
 
 #if OS_LINUX
@@ -47,8 +46,8 @@ PROCEDURE Main( cCodepage )
    ENDIF
 
    IF ! CdpExists( cCodepage ) .OR. GtInfo( GTI_CODEPAGE, cCodepage ) == NIL
-      ? "Cannot select GT code page:", cCodepage
-      ? "Use CP437, CP852, CP1250, ISO-8859-2, MAZOVIA or UTF-8."
+      QOut( "Cannot select GT code page:", cCodepage )
+      QOut( "Use CP437, CP852, CP1250, ISO-8859-2, MAZOVIA or UTF-8." )
       Inkey( 0, INKEY_KEYBOARD )
       ErrorLevel( 1 )
       RETURN

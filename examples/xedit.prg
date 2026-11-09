@@ -19,7 +19,7 @@
 
 #include "gtinfo.ch"
 #include "inkey.ch"
-#include "std.ch"
+#include "setcurs.ch"
 #include "tui.ch"
 
 #if OS_LINUX
@@ -44,7 +44,7 @@ PROCEDURE Main( cFileName )
 
    IF ! oEdit:Load() .AND. ;
       Alert( "Cannot find the file " + '"' + cFileName + '";;Do you want to create a new file?', { "Yes", "No" } ) != 1
-      QUIT
+      Quit()
    ENDIF
 
    GtInfo( GTI_RESIZEBLOCK, {|| oEdit:bottom := MaxRow(), oEdit:right := MaxCol(), ;
@@ -71,19 +71,19 @@ PROCEDURE Main( cFileName )
          EXIT
 
       CASE K_F1
-         SET CURSOR OFF
+         SetCursor( SC_NONE )
          xEdit_Help()
          oEdit:Display()
          EXIT
 
       CASE K_RBUTTONUP
-         SET CURSOR OFF
+         SetCursor( SC_NONE )
          s_ContextMenu( MRow(), MCol() )
          oEdit:Display()
          EXIT
 
       CASE K_SH_F10
-         SET CURSOR OFF
+         SetCursor( SC_NONE )
          s_ContextMenu( Row(), Col() + 1 )
          oEdit:Display()
          EXIT

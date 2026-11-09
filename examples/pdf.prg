@@ -53,7 +53,6 @@
 
 #include "hpdf.ch"
 #include "qrcode.ch"
-#include "std.ch"
 
 
 #if OS_LINUX
@@ -166,8 +165,7 @@ PROCEDURE Main()
    AEval( QrEncode( "123", QR_ECC_LOW ), {| cRow | s_Line( StrTran( StrTran( cRow, "1", "##" ), "0", "  " ) ) } )
 
    MemoWrit( "pdf.txt", s_cReport, .F. )
-   ? "Results saved to pdf.txt, invoice in invoice.pdf"
-
+   QOut( "Results saved to pdf.txt, invoice in invoice.pdf" )
    RETURN
 
 STATIC PROCEDURE s_Cells( pPage, aCols, nY, aText )
