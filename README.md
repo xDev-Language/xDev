@@ -6,36 +6,6 @@ A statically and dynamically typed language for building efficient, modern appli
 
 [Read more about xDev](https://github.com/xDev-Language/.github).
 
-```xBase
-PROCEDURE Main()
-
-   LOCAL cProgram     := "+ + * 😃 - /"
-   LOCAL nAccumulator := 0
-   LOCAL cToken
-   LOCAL i AS int
-
-   FOR i := 1 TO ULen( cProgram )
-      cToken := USubStr( cProgram, i, 1 )
-      DO CASE
-      CASE cToken == "+"
-         nAccumulator += 1
-      CASE cToken == "-"
-         nAccumulator -= 1
-      CASE cToken == "*"
-         nAccumulator *= 2
-      CASE cToken == "/"
-         nAccumulator /= 2
-      CASE cToken == "😃"
-         nAccumulator *= nAccumulator
-      ENDCASE
-   NEXT
-
-   QOut( 'The program "' + cProgram + '" calculates the value ' + LTrim( Str( nAccumulator ) ) )
-
-   RETURN
-
-```
-
 Everything you need is included in the package, there is nothing else to install.
 Libraries in `lib/xdev` are linked automatically.
 

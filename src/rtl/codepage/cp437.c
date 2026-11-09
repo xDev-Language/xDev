@@ -29,11 +29,6 @@ static const uint16_t s_cp437[128] =
 
 static X_CODEPAGE s_codepage = { "CP437", 437, s_cp437, NULL, 16, NULL };
 
-void x_codepageRegisterCP437( void )
-{
-   x_codepageRegister( &s_codepage );
-}
-
 static void __attribute__( ( constructor ) ) s_codepageRegister( void )
 {
    x_codepageRegister( &s_codepage );

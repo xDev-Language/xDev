@@ -35,14 +35,12 @@ PROCEDURE Main( cFileName )
    LOCAL nKey
    LOCAL nHeight := 20
 
-   SetColorExt( COLOR_TEXT, 0x1F1F1F )
-   Scroll()
-
    IF cFileName == NIL
       cFileName := "Untitled-1.prg"
    ENDIF
 
    oEdit := TEdit():New( 0, 0, MaxRow(), MaxCol(), cFileName )
+   oEdit:background := 0xF1F1F1
 
    IF ! oEdit:Load() .AND. ;
       Alert( "Cannot find the file " + '"' + cFileName + '";;Do you want to create a new file?', { "Yes", "No" } ) != 1

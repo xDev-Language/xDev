@@ -8,6 +8,10 @@
 static X_CODEPAGE s_utf8 = { "UTF-8", 65001, NULL, NULL, 48, NULL };
 static X_CODEPAGE *s_codepages = &s_utf8;
 
+/* the Unicode to code page table of the last used page; a DBF table converts every field, so it is kept */
+static const X_CODEPAGE *s_reversePage = NULL;
+static uint16_t         *s_reverseTable = NULL;
+
 static int s_nameMatches( const char *registered, const char *name, size_t length )
 {
    return registered && strlen( registered ) == length && x_strnicmp( registered, name, length ) == 0;
@@ -99,7 +103,8 @@ uint16_t x_codepageDecode( const X_CODEPAGE *codepage, const unsigned char *text
    return codepage->unicode[byte - 128];
 }
 
-static char *s_codepageToUTF8( const X_CODEPAGE *codepage, const char *text, size_t length, size_t *resultLength )
+/* NULL when a byte has no character in the code page */
+char *x_codepageToUTF8( const X_CODEPAGE *codepage, const char *text, size_t length, size_t *resultLength )
 {
    const unsigned char *source = ( const unsigned char * )text;
    size_t               offset = 0, total = 0, size, written = 0;
@@ -167,21 +172,25 @@ static uint16_t *s_codepageReverse( const X_CODEPAGE *codepage )
    return reverse;
 }
 
-static uint16_t s_codepageEncode( const X_CODEPAGE *codepage, uint16_t codepoint, uint16_t **reverse )
+static uint16_t s_codepageEncode( const X_CODEPAGE *codepage, uint16_t codepoint )
 {
    if( codepoint < 128 && !( codepoint == 0x25 && codepage->number == 864 ) )
       return codepoint;
 
-   if( !*reverse )
-      *reverse = s_codepageReverse( codepage );
+   if( s_reversePage != codepage )
+   {
+      x_xfree( s_reverseTable );
+      s_reverseTable = s_codepageReverse( codepage );
+      s_reversePage  = codepage;
+   }
 
-   return ( *reverse )[codepoint];
+   return s_reverseTable[codepoint];
 }
 
-static char *s_codepageFromUTF8( const X_CODEPAGE *codepage, const char *text, size_t length, size_t *resultLength )
+/* NULL when the text is not valid UTF-8 or a character has no place in the code page */
+char *x_codepageFromUTF8( const X_CODEPAGE *codepage, const char *text, size_t length, size_t *resultLength )
 {
    char     *result = ( char * )x_xgrab( length + 1 );
-   uint16_t *reverse = NULL;
    uint16_t  encoded;
    uint32_t  codepoint;
    size_t    offset = 0, written = 0;
@@ -194,7 +203,7 @@ static char *s_codepageFromUTF8( const X_CODEPAGE *codepage, const char *text, s
       if( codepoint > 0xFFFF )
          goto invalid;
 
-      encoded = s_codepageEncode( codepage, ( uint16_t )codepoint, &reverse );
+      encoded = s_codepageEncode( codepage, ( uint16_t )codepoint );
 
       if( !encoded && codepoint )
          goto invalid;
@@ -205,14 +214,12 @@ static char *s_codepageFromUTF8( const X_CODEPAGE *codepage, const char *text, s
       result[written++] = ( char )( encoded & 0xFF );
    }
 
-   x_xfree( reverse );
    result[written] = '\0';
    *resultLength = written;
 
    return result;
 
    invalid:
-   x_xfree( reverse );
    x_xfree( result );
 
    return NULL;
@@ -245,7 +252,6 @@ static int s_codepageValidate( const X_CODEPAGE *codepage, const char *text, siz
 static char *s_codepageTranscode( const X_CODEPAGE *from, const X_CODEPAGE *to, const char *text, size_t length, size_t *resultLength )
 {
    const unsigned char *source = ( const unsigned char * )text;
-   uint16_t            *reverse = NULL;
    uint16_t             codepoint, encoded;
    size_t               offset = 0, total = 0, size, written = 0;
    char                *result;
@@ -254,15 +260,15 @@ static char *s_codepageTranscode( const X_CODEPAGE *from, const X_CODEPAGE *to, 
    {
       codepoint = x_codepageDecode( from, source, length, &offset );
       if( codepoint == 0xFFFD )
-         goto invalid;
+         return NULL;
 
-      encoded = s_codepageEncode( to, codepoint, &reverse );
+      encoded = s_codepageEncode( to, codepoint );
       if( !encoded && codepoint )
-         goto invalid;
+         return NULL;
 
       size = IIF( encoded >= 256, 2, 1 );
       if( size > SIZE_MAX - total - 1 )
-         goto invalid;
+         return NULL;
 
       total += size;
    }
@@ -272,21 +278,16 @@ static char *s_codepageTranscode( const X_CODEPAGE *from, const X_CODEPAGE *to, 
    while( offset < length )
    {
       codepoint = x_codepageDecode( from, source, length, &offset );
-      encoded = s_codepageEncode( to, codepoint, &reverse );
+      encoded = s_codepageEncode( to, codepoint );
       if( encoded >= 256 )
          result[written++] = ( char )( encoded >> 8 );
 
       result[written++] = ( char )( encoded & 0xFF );
    }
 
-   x_xfree( reverse );
    result[written] = '\0';
    *resultLength = written;
    return result;
-
-   invalid:
-   x_xfree( reverse );
-   return NULL;
 }
 
 void x_codepageConvert( X_CALL_CTX *ctx, int toUTF8 )
@@ -312,8 +313,8 @@ void x_codepageConvert( X_CALL_CTX *ctx, int toUTF8 )
       return;
    }
 
-   result = IIF( toUTF8, s_codepageToUTF8( codepage, text, length, &resultLength ),
-                         s_codepageFromUTF8( codepage, text, length, &resultLength ) );
+   result = IIF( toUTF8, x_codepageToUTF8( codepage, text, length, &resultLength ),
+                         x_codepageFromUTF8( codepage, text, length, &resultLength ) );
 
    if( result )
       x_retclen_buffer( ctx, result, resultLength );
@@ -345,9 +346,9 @@ void x_codepageTranslate( X_CALL_CTX *ctx )
    }
 
    if( !from )
-      result = s_codepageFromUTF8( to, text, length, &resultLength );
+      result = x_codepageFromUTF8( to, text, length, &resultLength );
    else if( !to )
-      result = s_codepageToUTF8( from, text, length, &resultLength );
+      result = x_codepageToUTF8( from, text, length, &resultLength );
    else
       result = s_codepageTranscode( from, to, text, length, &resultLength );
 
