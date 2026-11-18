@@ -8,6 +8,7 @@
  */
 
 #include "classes.h"
+#include "gtinfo.h"
 #include "internal-private.h"
 #include "operators.h"
 #include "platform.h"
@@ -41,6 +42,15 @@ int x_clearChar = ' ';
 /* The keys of SetKey() */
 static S_SETKEY *s_setKeys;
 static size_t s_setKeyCount;
+
+/* KbdStat(): a shift state of the GT and its bit in the keyboard status */
+static const struct
+{
+   int shift;
+   int bit;
+} s_kbdStatBits[] = { { X_GTI_KBD_RSHIFT, 0x01 },   { X_GTI_KBD_LSHIFT, 0x02 },   { X_GTI_KBD_CTRL, 0x04 },
+                      { X_GTI_KBD_ALT, 0x08 },      { X_GTI_KBD_SCROLOCK, 0x10 }, { X_GTI_KBD_NUMLOCK, 0x20 },
+                      { X_GTI_KBD_CAPSLOCK, 0x40 }, { X_GTI_KBD_INSERT, 0x80 } };
 
 /* ---------------------------------------------------------------------------------------------
    AChoice()
@@ -827,6 +837,44 @@ void x_screenInvertWin( X_CALL_CTX *ctx )
 
    x_gtFlush();
    x_retc( ctx, "" );
+}
+
+/* KbdStat(): the shift keys and the lock keys as bits; 0 when the GT does not report them */
+void x_screenKbdStat( X_CALL_CTX *ctx )
+{
+   X_ITEM shifts __attribute__( ( cleanup( x_itemClear ) ) ) = X_ITEM_NIL_INIT;
+   int state, status = 0;
+   size_t i;
+
+   x_gtInfo( X_GTI_KBDSHIFTS, NULL, NULL, &shifts );
+   state = x_itemGetNI( &shifts );
+
+   for( i = 0; i < sizeof( s_kbdStatBits ) / sizeof( s_kbdStatBits[0] ); ++i )
+   {
+      if( state & s_kbdStatBits[i].shift )
+         status |= s_kbdStatBits[i].bit;
+   }
+
+   x_retni( ctx, status );
+}
+
+/* KSetCaps(), KSetIns(), KSetNum(), KSetScroll(): the old state of one lock key; lNewSwitch sets it */
+void x_screenKSet( X_CALL_CTX *ctx, int flag )
+{
+   X_ITEM shifts __attribute__( ( cleanup( x_itemClear ) ) ) = X_ITEM_NIL_INIT;
+   X_ITEM newShifts __attribute__( ( cleanup( x_itemClear ) ) ) = X_ITEM_NIL_INIT;
+   int state;
+
+   x_gtInfo( X_GTI_KBDSHIFTS, NULL, NULL, &shifts );
+   state = x_itemGetNI( &shifts );
+
+   if( X_ISLOG( ctx, 1 ) )
+   {
+      x_itemPutNI( &newShifts, IIF( x_parl( ctx, 1 ), state | flag, state & ~flag ) );
+      x_gtInfo( X_GTI_KBDSHIFTS, &newShifts, NULL, &shifts );
+   }
+
+   x_retl( ctx, ( state & flag ) != 0 );
 }
 
 /* NToColor(): convert a numeric color attribute to a color string */

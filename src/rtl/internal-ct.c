@@ -7,7 +7,9 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
+#include "gtinfo.h"
 #include "terminal.h"
+#include "../../include/xdev/inkey.ch"
 #include "../../include/xdev/setcurs.ch"
 
 #include <string.h>
@@ -80,6 +82,15 @@ static int s_ctModeRight;
 /* WSetShadow() and WSetMove() */
 static int s_ctShadowColor = -1;
 static int s_ctMoveMode = 1;
+
+/* WStep(): the step of the interactive moving */
+static int s_ctStepRows = 2;
+static int s_ctStepCols = 5;
+
+/* Interactive moving: the last arrow key and the axes moved by 1 after two opposite keys */
+static int s_ctMoveLast;
+static int s_ctFineRows;
+static int s_ctFineCols;
 
 /* The window of a GT */
 static X_CT_WINDOW *s_ctWindowOf( X_GT_BASE *gt )
@@ -1162,11 +1173,68 @@ int x_ctSetMove( int mode )
    return previous;
 }
 
-/* WStep(): xDev has no interactive moving of windows, so the step is only checked, as in CT it may be set
-   only while no window is open */
+/* WStep(): the step of the interactive moving, at most 6 rows and 20 columns; it may be set only while no
+   window is open */
 int x_ctStep( int rows, int cols )
 {
-   return IIF( s_ctScreen || rows < 1 || cols < 1, -1, 0 );
+   if( s_ctScreen || rows < 1 || cols < 1 )
+      return -1;
+
+   s_ctStepRows = IIF( rows > 6, 6, rows );
+   s_ctStepCols = IIF( cols > 20, 20, cols );
+
+   return 0;
+}
+
+/* The end of the interactive moving: the next arrow keys use the step of WStep() again */
+static void s_ctMoveEnd( void )
+{
+   s_ctMoveLast = 0;
+   s_ctFineRows = 0;
+   s_ctFineCols = 0;
+}
+
+/* Interactive moving: with WSetMove() and Scroll Lock on, an arrow key moves the current window by the step
+   of WStep(); two opposite keys one after the other move that axis by 1. 1 when the key was used */
+int x_ctMoveKey( int key )
+{
+   X_ITEM shifts __attribute__( ( cleanup( x_itemClear ) ) ) = X_ITEM_NIL_INIT;
+   X_GT_INFO info = { NULL, NULL, &shifts };
+   X_CT_WINDOW *window;
+   int rows = 0, cols = 0;
+
+   key = x_inkeyKeyStd( key );
+   if( key == K_UP || key == K_DOWN )
+      rows = IIF( key == K_UP, -1, 1 );
+   else if( key == K_LEFT || key == K_RIGHT )
+      cols = IIF( key == K_LEFT, -1, 1 );
+
+   if( !s_ctScreen || !s_ctMoveMode || !s_ctCurrent || ( !rows && !cols ) )
+   {
+      s_ctMoveEnd();
+      return 0;
+   }
+
+   s_ctScreen->pFuncTable->Info( s_ctScreen, X_GTI_KBDSHIFTS, &info );
+   if( !( x_itemGetNI( &shifts ) & X_GTI_KBD_SCROLOCK ) )
+   {
+      s_ctMoveEnd();
+      return 0;
+   }
+
+   if( rows && ( s_ctMoveLast == K_UP || s_ctMoveLast == K_DOWN ) && s_ctMoveLast != key )
+      s_ctFineRows = 1;
+
+   if( cols && ( s_ctMoveLast == K_LEFT || s_ctMoveLast == K_RIGHT ) && s_ctMoveLast != key )
+      s_ctFineCols = 1;
+
+   s_ctMoveLast = key;
+   window = s_ctWindows[s_ctCurrent];
+   rows *= IIF( s_ctFineRows, 1, s_ctStepRows );
+   cols *= IIF( s_ctFineCols, 1, s_ctStepCols );
+   x_ctMove( window->top + rows, window->left + cols );
+
+   return 1;
 }
 
 /* ---------------------------------------------------------------------------------------------

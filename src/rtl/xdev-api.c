@@ -11,6 +11,7 @@
 #define X_RTL_DEFAULT_API
 
 #include "classes.h"
+#include "gtinfo.h"
 #include "internal.h"
 #include "platform.h"
 #include "terminal.h"
@@ -95,9 +96,9 @@ X_FUNC( ACOPY )
 {
    X_ARGCHECK( ctx, X_ISARRAY( ctx, 1 ), "ACOPY" );
    X_ARGCHECK( ctx, X_ISARRAY( ctx, 2 ), "ACOPY" );
-   X_ARGCHECK_OPT( ctx, 3, X_ISNUM( ctx, 3 ), "ACOPY" );
-   X_ARGCHECK_OPT( ctx, 4, X_ISNUM( ctx, 4 ), "ACOPY" );
-   X_ARGCHECK_OPT( ctx, 5, X_ISNUM( ctx, 5 ), "ACOPY" );
+   X_ARGCHECK_OPT( ctx, 3, X_ISNIL( ctx, 3 ) || X_ISNUM( ctx, 3 ), "ACOPY" );
+   X_ARGCHECK_OPT( ctx, 4, X_ISNIL( ctx, 4 ) || X_ISNUM( ctx, 4 ), "ACOPY" );
+   X_ARGCHECK_OPT( ctx, 5, X_ISNIL( ctx, 5 ) || X_ISNUM( ctx, 5 ), "ACOPY" );
 
    x_arrayACopy( ctx );
 }
@@ -837,90 +838,6 @@ X_FUNC( BLDLOGMSG )
    x_errorRaiseNamed( ctx->result, 1900, "BLDLOGMSG" );
 }
 
-// Export the contents of a BLOB pointer to a file
-// BLOBDIRECTEXPORT( nPointer, cTargetFile, [nMode] ) --> lSuccess
-X_FUNC( BLOBDIRECTEXPORT )
-{
-   x_errorRaiseNamed( ctx->result, 1900, "BLOBDIRECTEXPORT" );
-}
-
-// Retrieve data from a BLOB file without referencing a field
-// BLOBDIRECTGET( nPointer, [nStart], [nCount] ) --> expBLOB
-X_FUNC( BLOBDIRECTGET )
-{
-   x_errorRaiseNamed( ctx->result, 1900, "BLOBDIRECTGET" );
-}
-
-// Import a file into a BLOB file and return pointer to the data
-// BLOBDIRECTIMPORT( nOldPointer, cSourceFile ) --> nNewPointer
-X_FUNC( BLOBDIRECTIMPORT )
-{
-   x_errorRaiseNamed( ctx->result, 1900, "BLOBDIRECTIMPORT" );
-}
-
-// Put data in a BLOB file without referencing a specific field
-// BLOBDIRECTPUT( nOldPointer, uBLOB ) --> nNewPointer
-X_FUNC( BLOBDIRECTPUT )
-{
-   x_errorRaiseNamed( ctx->result, 1900, "BLOBDIRECTPUT" );
-}
-
-// Copy the contents of a memo field number to a BLOB file
-// BLOBEXPORT( nFieldPos, cTargetFile, [nMode] ) --> lSuccess
-X_FUNC( BLOBEXPORT )
-{
-   x_errorRaiseNamed( ctx->result, 1900, "BLOBEXPORT" );
-}
-
-// Get the contents of a BLOB, identified by memo field number
-// BLOBGET( nFieldPos, [nStart], [nCount] ) --> uBLOB
-X_FUNC( BLOBGET )
-{
-   x_errorRaiseNamed( ctx->result, 1900, "BLOBGET" );
-}
-
-// Read the contents of a BLOB file into a memo field
-// BLOBIMPORT( nFieldPos, cSourceFile ) --> lSuccess
-X_FUNC( BLOBIMPORT )
-{
-   x_errorRaiseNamed( ctx->result, 1900, "BLOBIMPORT" );
-}
-
-// Delete the root area of a BLOB file
-// BlobRootDelete( ) --> lSuccess
-X_FUNC( BLOBROOTDELETE )
-{
-   x_errorRaiseNamed( ctx->result, 1900, "BLOBROOTDELETE" );
-}
-
-// Retrieve the data from the root area of a BLOB file
-// BLOBROOTGET( ) --> uBLOB
-X_FUNC( BLOBROOTGET )
-{
-   x_errorRaiseNamed( ctx->result, 1900, "BLOBROOTGET" );
-}
-
-// Obtain a lock on the root area of a BLOB file
-// BLOBROOTLOCK( ) --> lSuccess
-X_FUNC( BLOBROOTLOCK )
-{
-   x_errorRaiseNamed( ctx->result, 1900, "BLOBROOTLOCK" );
-}
-
-// Store data in the root area of a BLOB file
-// BLOBROOTPUT( uBLOB ) --> lSuccess
-X_FUNC( BLOBROOTPUT )
-{
-   x_errorRaiseNamed( ctx->result, 1900, "BLOBROOTPUT" );
-}
-
-// Release the lock on a BLOB file's root area
-// BLOBROOTUNLOCK( ) --> NIL
-X_FUNC( BLOBROOTUNLOCK )
-{
-   x_errorRaiseNamed( ctx->result, 1900, "BLOBROOTUNLOCK" );
-}
-
 // Return the date of the first day of a month
 // BoM( [dDate] ) --> dFirstDayOfMonth
 X_FUNC( BOM )
@@ -986,13 +903,6 @@ X_FUNC( BREAK )
       x_errorRaiseNamed( ctx->result, 3003, "BREAK" );
    else
       x_breakRaise( x_paritem( ctx, 1 ) );
-}
-
-// Browse records within a window
-// Browse( [nTop], [nLeft], [nBottom], [nRight] ) --> lSuccess
-X_FUNC( BROWSE )
-{
-   x_errorRaiseNamed( ctx->result, 1900, "BROWSE" );
 }
 
 // Retrieve the formatted build date of the xDev compiler
@@ -1396,6 +1306,13 @@ X_FUNC( CHR )
    x_retclen( ctx, &value, 1 );
 }
 
+// Clear bits of a number; nBitPos 1 is the lowest bit, -1 for an invalid argument
+// ClearBit( nLong | cHexLong, nBitPos1, [nBitPosN, ...] ) --> nNewValue
+X_FUNC( CLEARBIT )
+{
+   x_numBit( ctx, 0 );
+}
+
 // Clear a row on the screen from a specified position
 // ClearEol( [nRow], [nCol], [xColor], [xChar] ) --> cNull
 X_FUNC( CLEAREOL )
@@ -1643,13 +1560,6 @@ X_FUNC( COT )
    x_mathRetnd( ctx, 1.0 / tan( x_parnd( ctx, 1 ) ), "COT" );
 }
 
-// Return the number of Get objects in the current GetList array
-// CountGets( ) --> nGetCount
-X_FUNC( COUNTGETS )
-{
-   x_errorRaiseNamed( ctx->result, 1900, "COUNTGETS" );
-}
-
 // Count a specified character on the left side of a string
 // CountLeft( cString, [xChar] ) --> nCount
 X_FUNC( COUNTLEFT )
@@ -1736,7 +1646,7 @@ X_FUNC( CSETKEY )
    x_errorRaiseNamed( ctx->result, 1900, "CSETKEY" );
 }
 
-// Query or change the safety switch used in CA-Tools file operations
+// Query or change the safety switch used in file operations
 // CSetSafety( [lNewMode] ) --> lOldMode
 X_FUNC( CSETSAFETY )
 {
@@ -1853,13 +1763,6 @@ X_FUNC( CURDRIVE )
    X_ARGCHECK_OPT( ctx, 1, X_ISNIL( ctx, 1 ) || X_ISCHAR( ctx, 1 ), "CURDRIVE" );
 
    x_fsCurDriveCall( ctx );
-}
-
-// Return the position of the current Get object in the GetList array
-// CurrentGet( ) --> nCurrentGetPos
-X_FUNC( CURRENTGET )
-{
-   x_errorRaiseNamed( ctx->result, 1900, "CURRENTGET" );
 }
 
 // Return the current directory with the drive and a trailing separator
@@ -3788,27 +3691,6 @@ X_FUNC( GETENV )
    x_retc( ctx, IIF( value != NULL, value, x_parc( ctx, 2 ) ) );
 }
 
-// Return the screen column of a Get object
-// GetFldCol( [nGetPos] ) --> nScreenColumn
-X_FUNC( GETFLDCOL )
-{
-   x_errorRaiseNamed( ctx->result, 1900, "GETFLDCOL" );
-}
-
-// Return the screen row of a Get object
-// GetFldRow( [nGetPos] ) --> nScreenRow
-X_FUNC( GETFLDROW )
-{
-   x_errorRaiseNamed( ctx->result, 1900, "GETFLDROW" );
-}
-
-// Return the name of a Get variable
-// GetFldVar( [nGetPos] ) --> cGetVarName
-X_FUNC( GETFLDVAR )
-{
-   x_errorRaiseNamed( ctx->result, 1900, "GETFLDVAR" );
-}
-
 // Return the error code of the last dynamically called DLL function
 // GetLastError( ) --> nErrorCode
 X_FUNC( GETLASTERROR )
@@ -3876,13 +3758,6 @@ X_FUNC( GETPROCADDRESS )
 X_FUNC( GETREGISTRY )
 {
    x_errorRaiseNamed( ctx->result, 1900, "GETREGISTRY" );
-}
-
-// Read a character string with hidden Get input
-// GetSecret( cInit, [nRow], [nCol], [lSay], [cSay] ) --> cString
-X_FUNC( GETSECRET )
-{
-   x_errorRaiseNamed( ctx->result, 1900, "GETSECRET" );
 }
 
 // Return the numeric system thread ID of a thread
@@ -4047,34 +3922,6 @@ X_FUNC( GTVERSION )
    X_ARGCHECK_OPT( ctx, 1, X_ISNIL( ctx, 1 ) || X_ISNUM( ctx, 1 ), "GTVERSION" );
 
    x_retc( ctx, x_gtVersion( x_parnidef( ctx, 1, 0 ) ) );
-}
-
-// Send an Inkey() code to the control of the active Get object
-// GuiApplyKey( oGet, nKey, oMenu, oGetMsg ) --> NIL
-X_FUNC( GUIAPPLYKEY )
-{
-   x_errorRaiseNamed( ctx->result, 1900, "GUIAPPLYKEY" );
-}
-
-// Validate the data of a GUI control after editing
-// GuiGetPostValidate( oGet, oControl, [oGetMsg] ) --> lDataIsValid
-X_FUNC( GUIGETPOSTVALIDATE )
-{
-   x_errorRaiseNamed( ctx->result, 1900, "GUIGETPOSTVALIDATE" );
-}
-
-// Validate the data of a GUI control before editing
-// GuiGetPreValidate( oGet, oControl, [oGetMsg] ) --> lCanEdit
-X_FUNC( GUIGETPREVALIDATE )
-{
-   x_errorRaiseNamed( ctx->result, 1900, "GUIGETPREVALIDATE" );
-}
-
-// Process user input for a GUI control
-// GuiReader( oGet, oGetlist, [oMenu], [oGetMsg] ) --> NIL
-X_FUNC( GUIREADER )
-{
-   x_errorRaiseNamed( ctx->result, 1900, "GUIREADER" );
 }
 
 // Draw graphic text without background
@@ -4817,6 +4664,20 @@ X_FUNC( INT )
    x_mathInt( ctx );
 }
 
+// Convert an unsigned 16-bit or 32-bit integer to a signed one; 0 for an invalid argument
+// IntNeg( nUnsigned | cHexUnsigned, [l32Bit] ) --> nSigned
+X_FUNC( INTNEG )
+{
+   x_numSigned( ctx );
+}
+
+// Convert a signed 16-bit or 32-bit integer to an unsigned one; 0 for an invalid argument
+// IntPos( nSigned | cHexSigned, [l32Bit] ) --> nUnsigned
+X_FUNC( INTPOS )
+{
+   x_numUnsigned( ctx );
+}
+
 // Exchange the foreground and background color
 // InvertAttr( xColor ) --> nInvertedAttribute
 X_FUNC( INVERTATTR )
@@ -4876,6 +4737,13 @@ X_FUNC( ISASCII )
    X_ARGCHECK( ctx, X_ISCHAR( ctx, 1 ), "ISASCII" );
 
    x_retl( ctx, x_parclen( ctx, 1 ) > 0 && ( unsigned char )x_parc( ctx, 1 )[0] < 128 );
+}
+
+// Test a bit of a number; nBitPos 1 is the lowest bit, .F. for an invalid argument
+// IsBit( nLong | cHexLong, [nBitPos] ) --> lSet
+X_FUNC( ISBIT )
+{
+   x_numIsBit( ctx );
 }
 
 // Test if the value returned by an expression is a Code block
@@ -5183,7 +5051,9 @@ X_FUNC( JUSTRIGHT )
 // KbdStat( ) --> nKeyState
 X_FUNC( KBDSTAT )
 {
-   x_errorRaiseNamed( ctx->result, 1900, "KBDSTAT" );
+   X_GTCHECK( ctx, "KBDSTAT" );
+
+   x_screenKbdStat( ctx );
 }
 
 // Stuff a string into the keyboard buffer, clearing any pending keystrokes
@@ -5268,28 +5138,40 @@ X_FUNC( KILLTHREAD )
 // KSetCaps( [lNewMode] ) --> lOldMode
 X_FUNC( KSETCAPS )
 {
-   x_errorRaiseNamed( ctx->result, 1900, "KSETCAPS" );
+   X_GTCHECK( ctx, "KSETCAPS" );
+   X_ARGCHECK_OPT( ctx, 1, X_ISNIL( ctx, 1 ) || X_ISLOG( ctx, 1 ), "KSETCAPS" );
+
+   x_screenKSet( ctx, X_GTI_KBD_CAPSLOCK );
 }
 
 // Query or change the status of the Insert/Overwrite key
 // KSetIns( [lNewMode] ) --> lOldMode
 X_FUNC( KSETINS )
 {
-   x_errorRaiseNamed( ctx->result, 1900, "KSETINS" );
+   X_GTCHECK( ctx, "KSETINS" );
+   X_ARGCHECK_OPT( ctx, 1, X_ISNIL( ctx, 1 ) || X_ISLOG( ctx, 1 ), "KSETINS" );
+
+   x_screenKSet( ctx, X_GTI_KBD_INSERT );
 }
 
 // Query or change the status of the Num lock key
 // KSetNum( [lNewMode] ) --> lOldMode
 X_FUNC( KSETNUM )
 {
-   x_errorRaiseNamed( ctx->result, 1900, "KSETNUM" );
+   X_GTCHECK( ctx, "KSETNUM" );
+   X_ARGCHECK_OPT( ctx, 1, X_ISNIL( ctx, 1 ) || X_ISLOG( ctx, 1 ), "KSETNUM" );
+
+   x_screenKSet( ctx, X_GTI_KBD_NUMLOCK );
 }
 
 // Query or change the status of the Scroll lock key
 // KSetScroll( [lNewMode] ) --> lOldMode
 X_FUNC( KSETSCROLL )
 {
-   x_errorRaiseNamed( ctx->result, 1900, "KSETSCROLL" );
+   X_GTCHECK( ctx, "KSETSCROLL" );
+   X_ARGCHECK_OPT( ctx, 1, X_ISNIL( ctx, 1 ) || X_ISLOG( ctx, 1 ), "KSETSCROLL" );
+
+   x_screenKSet( ctx, X_GTI_KBD_SCROLOCK );
 }
 
 // Convert a xDev numeric value to a 32-bit binary integer
@@ -5597,13 +5479,6 @@ X_FUNC( MDY )
    x_dateMDY( ctx );
 }
 
-// Display or edit character strings and memo fields
-// MemoEdit( [cString], [nTop], [nLeft], [nBottom], [nRight], [lEditMode], [cUserFunction], [nLineLength], [nTabSize], [nTextBufferRow], [nTextBufferColumn], [nWindowRow], [nWindowColumn] ) --> cTextBuffer
-X_FUNC( MEMOEDIT )
-{
-   x_errorRaiseNamed( ctx->result, 1900, "MEMOEDIT" );
-}
-
 // Extract a line of text from a character string or memo field
 // MemoLine( cString, [nLineLength], [nLineNumber], [nTabSize], [lWrap] ) --> cLine
 X_FUNC( MEMOLINE )
@@ -5640,13 +5515,6 @@ X_FUNC( MEMORY )
    x_retnint( ctx, IIF( pool >= 0 && pool <= 2, ( int64_t )( x_sysMemoryAvail() / 1024 ), 0 ) );
 }
 
-// Set an RDD inheritance chain for the DBFMEMO database driver
-// MEMOSETSUPER( [cSuperRDD] ) --> cOldSuperName
-X_FUNC( MEMOSETSUPER )
-{
-   x_errorRaiseNamed( ctx->result, 1900, "MEMOSETSUPER" );
-}
-
 // Replace carriage return/linefeeds in character strings
 // MemoTran( cString, [cReplaceHardCR], [cReplaceSoftCR] ) --> cNewString
 X_FUNC( MEMOTRAN )
@@ -5667,13 +5535,6 @@ X_FUNC( MEMOWRIT )
    X_ARGCHECK_OPT( ctx, 3, X_ISNIL( ctx, 3 ) || X_ISLOG( ctx, 3 ), "MEMOWRIT" );
 
    x_fsMemoWritCall( ctx );
-}
-
-// Activate a top bar menu
-// MenuModal( oTopBar, nSelection, nMsgRow, nMsgLeft, nMsgRight, cMsgColor ) --> MenuID
-X_FUNC( MENUMODAL )
-{
-   x_errorRaiseNamed( ctx->result, 1900, "MENUMODAL" );
 }
 
 // Hide the mouse pointer
@@ -6037,6 +5898,13 @@ X_FUNC( NUL )
    x_errorRaiseNamed( ctx->result, 1900, "NUL" );
 }
 
+// Join numbers with a bitwise AND; -1 for an invalid argument
+// NumAnd( nWord1 | cHexWord1, nWord2 | cHexWord2, [nWordN | cHexWordN, ...] ) --> nWordAnd
+X_FUNC( NUMAND )
+{
+   x_numLogic( ctx, '&' );
+}
+
 // Count multiple occurrences of a substring within a string
 // NumAt( cSearch, cString, [nSkipChars] ) --> nCount
 X_FUNC( NUMAT )
@@ -6064,13 +5932,10 @@ X_FUNC( NUMCOUNT )
    x_mathCounter( ctx );
 }
 
-// Return the high byte of a 16-bit integer
+// Return the high byte of a 16-bit integer; -1 for an invalid argument
 // NumHigh( nInteger | cHex ) --> nHighByte
 X_FUNC( NUMHIGH )
 {
-   X_ARGCHECK( ctx, X_ISCHAR( ctx, 1 ) || X_ISNUM( ctx, 1 ), "NUMHIGH" );
-   X_ARGCHECK( ctx, X_ISCHAR( ctx, 1 ) || ( x_parnd( ctx, 1 ) >= 0 && x_parnd( ctx, 1 ) <= 65535 ), "NUMHIGH" );
-
    x_numByte( ctx, 1 );
 }
 
@@ -6087,34 +5952,46 @@ X_FUNC( NUMLINE )
    x_retnint( ctx, ( int64_t )x_textLines( x_parc( ctx, 1 ), x_parclen( ctx, 1 ), width, 0 ) );
 }
 
-// Return the low byte of a 16-bit integer
+// Return the low byte of a 16-bit integer; -1 for an invalid argument
 // NumLow( nInteger | cHex ) --> nLowByte
 X_FUNC( NUMLOW )
 {
-   X_ARGCHECK( ctx, X_ISCHAR( ctx, 1 ) || X_ISNUM( ctx, 1 ), "NUMLOW" );
-   X_ARGCHECK( ctx, X_ISCHAR( ctx, 1 ) || ( x_parnd( ctx, 1 ) >= 0 && x_parnd( ctx, 1 ) <= 65535 ), "NUMLOW" );
-
    x_numByte( ctx, 0 );
 }
 
-// Mirror 8 or 16 bits of a 16-bit integer
+// Mirror 8 or 16 bits of a 16-bit integer; -1 for an invalid argument
 // NumMirr( nInteger | cHex, [lEightBits] ) --> nInteger
 X_FUNC( NUMMIRR )
 {
-   X_ARGCHECK( ctx, X_ISNUM( ctx, 1 ) || X_ISCHAR( ctx, 1 ), "NUMMIRR" );
-   X_ARGCHECK_OPT( ctx, 2, X_ISNIL( ctx, 2 ) || X_ISLOG( ctx, 2 ), "NUMMIRR" );
-
-   x_numMirror( ctx, 1, IIF( x_parl( ctx, 2 ), 8, 16 ), 65535, "NUMMIRR" );
+   x_numMirror( ctx, 1, IIF( x_parl( ctx, 2 ), 8, 16 ), 0xFFFF );
 }
 
-// Mirror bits of a numeric integer value
+// Mirror bits of a numeric integer value; -1 for an invalid argument
 // NumMirrX( nMaxBits, nInteger | cHex ) --> nInteger
 X_FUNC( NUMMIRRX )
 {
-   X_ARGCHECK( ctx, X_ISNUM( ctx, 1 ) && x_parnd( ctx, 1 ) >= 1 && x_parnd( ctx, 1 ) <= 32, "NUMMIRRX" );
-   X_ARGCHECK( ctx, X_ISNUM( ctx, 2 ) || X_ISCHAR( ctx, 2 ), "NUMMIRRX" );
+   x_numMirror( ctx, 2, IIF( X_ISNUM( ctx, 1 ), x_parni( ctx, 1 ), 0 ), UINT32_MAX );
+}
 
-   x_numMirror( ctx, 2, x_parni( ctx, 1 ), UINT32_MAX, "NUMMIRRX" );
+// Return the 16-bit complement of a number; -1 for an invalid argument
+// NumNot( nWord | cHexWord ) --> nNegatedWord
+X_FUNC( NUMNOT )
+{
+   x_numNot( ctx );
+}
+
+// Join numbers with a bitwise OR; -1 for an invalid argument
+// NumOr( nWord1 | cHexWord1, nWord2 | cHexWord2, [nWordN | cHexWordN, ...] ) --> nWordOr
+X_FUNC( NUMOR )
+{
+   x_numLogic( ctx, '|' );
+}
+
+// Rotate the bits of a 16-bit value, or of its low byte, to the left; -1 for an invalid argument
+// NumRol( nWord | cHexWord, nCount | cHexCount, [lLowByte] ) --> nWordRotated
+X_FUNC( NUMROL )
+{
+   x_numRol( ctx );
 }
 
 // Convert a numeric value or a pointer to a Hex string
@@ -6151,6 +6028,13 @@ X_FUNC( NUMTOKEN )
 
    x_tokenDelimiters( IIF( X_ISCHAR( ctx, 2 ), x_parc( ctx, 2 ), NULL ), x_parclen( ctx, 2 ), isDelimiter );
    x_retnint( ctx, ( int64_t )x_tokenScan( x_parc( ctx, 1 ), x_parclen( ctx, 1 ), isDelimiter, skip, NULL ) );
+}
+
+// Join numbers with a bitwise exclusive OR; -1 for an invalid argument
+// NumXor( nWord1 | cHexWord1, nWord2 | cHexWord2 ) --> nWordXor
+X_FUNC( NUMXOR )
+{
+   x_numLogic( ctx, '^' );
 }
 
 // Retrieve the pointer to a method
@@ -6195,34 +6079,6 @@ X_FUNC( ORDCOND )
    x_errorRaiseNamed( ctx->result, 1900, "ORDCOND" );
 }
 
-// Add a key to a custom built order
-// ordKeyAdd( [cOrder | nPosition], [cIndexFile],[expKeyValue] ) --> lSuccess
-X_FUNC( ORDKEYADD )
-{
-   x_errorRaiseNamed( ctx->result, 1900, "ORDKEYADD" );
-}
-
-// Delete a key from a custom built order
-// ordKeyDel( [cOrder | nPosition], [cIndexFile], [expKeyValue] ) --> lSuccess
-X_FUNC( ORDKEYDEL )
-{
-   x_errorRaiseNamed( ctx->result, 1900, "ORDKEYDEL" );
-}
-
-// Move to a record specified by its logical record number
-// ordKeyGoto( nKeyNo ) --> lSuccess
-X_FUNC( ORDKEYGOTO )
-{
-   x_errorRaiseNamed( ctx->result, 1900, "ORDKEYGOTO" );
-}
-
-// Move record pointer to the next or previous unique key
-// ordSkipUnique( [nDirection] ) --> lSuccess
-X_FUNC( ORDSKIPUNIQUE )
-{
-   x_errorRaiseNamed( ctx->result, 1900, "ORDSKIPUNIQUE" );
-}
-
 // Return the operating system name
 // OS( ) --> cOsName
 X_FUNC( OS )
@@ -6234,7 +6090,7 @@ X_FUNC( OS )
 // OsDriveSeparator( ) --> cDriveSeparator
 X_FUNC( OSDRIVESEPARATOR )
 {
-   x_errorRaiseNamed( ctx->result, 1900, "OSDRIVESEPARATOR" );
+   x_retc( ctx, X_OS_DRIVE_SEPARATOR );
 }
 
 // Return the operating specific error code of the last low-level file operation
@@ -6262,14 +6118,14 @@ X_FUNC( OSNEWLINE )
 // OsPathDelimiters( ) --> cDelimiters
 X_FUNC( OSPATHDELIMITERS )
 {
-   x_errorRaiseNamed( ctx->result, 1900, "OSPATHDELIMITERS" );
+   x_retc( ctx, X_OS_PATH_DELIMITERS );
 }
 
 // Return the operating specific separator character for a path list
-// OsPathListSeparator( ) --> cDDelimiter
+// OsPathListSeparator( ) --> cSeparator
 X_FUNC( OSPATHLISTSEPARATOR )
 {
-   x_errorRaiseNamed( ctx->result, 1900, "OSPATHLISTSEPARATOR" );
+   x_retc( ctx, X_OS_PATH_LIST_SEPARATOR );
 }
 
 // Return the operating specific separator character for a path
@@ -6763,20 +6619,6 @@ X_FUNC( RATE )
    x_retnd( ctx, x_mathRate( x_parnd( ctx, 1 ), x_parnd( ctx, 2 ), x_parnd( ctx, 3 ) ) );
 }
 
-// Return and optionally set code block to implement format file
-// ReadFormat( [bFormat] ) --> bCurrentFormat
-X_FUNC( READFORMAT )
-{
-   x_errorRaiseNamed( ctx->result, 1900, "READFORMAT" );
-}
-
-// Determine what key terminated a READ
-// ReadKey( ) --> nReadkeyCode
-X_FUNC( READKEY )
-{
-   x_errorRaiseNamed( ctx->result, 1900, "READKEY" );
-}
-
 // Scan a formatted character string or memo field for text lines
 // ReadLine( cText, [cDelim | aDelim], nLineLen, [nTabWidth], lWrap, [nStartOffset], @lFound, @lEOF, @nEndOffSet, @nEndOfLine ) --> NIL
 X_FUNC( READLINE )
@@ -6800,13 +6642,6 @@ X_FUNC( READLINE )
       X_ARGCHECK( ctx, X_ISBYREF( ctx, i ), "READLINE" );
 
    x_textReadLineCall( ctx );
-}
-
-// Determine whether any GET variables changed during a READ
-// ReadUpdated( [lChanged] ) --> lCurrentSetting
-X_FUNC( READUPDATED )
-{
-   x_errorRaiseNamed( ctx->result, 1900, "READUPDATED" );
 }
 
 // Search a string using a regular expression
@@ -6951,13 +6786,6 @@ X_FUNC( RESTCURSOR )
    x_errorRaiseNamed( ctx->result, 1900, "RESTCURSOR" );
 }
 
-// Restore a previously saved Getlist array
-// RestGets( aSavedGets ) --> lSuccess
-X_FUNC( RESTGETS )
-{
-   x_errorRaiseNamed( ctx->result, 1900, "RESTGETS" );
-}
-
 // Convert binary information back to a code block
 // RestoreBlock( aCodeblockInfo ) --> bCodeblock
 X_FUNC( RESTOREBLOCK )
@@ -7079,13 +6907,6 @@ X_FUNC( SAVEBLOCK )
 X_FUNC( SAVECURSOR )
 {
    x_errorRaiseNamed( ctx->result, 1900, "SAVECURSOR" );
-}
-
-// Save the current Getlist array for nested READs
-// SaveGets( ) --> aSavedGetlist
-X_FUNC( SAVEGETS )
-{
-   x_errorRaiseNamed( ctx->result, 1900, "SAVEGETS" );
 }
 
 // Save a screen region for later display
@@ -7323,6 +7144,13 @@ X_FUNC( SET )
 X_FUNC( SETATLIKE )
 {
    x_errorRaiseNamed( ctx->result, 1900, "SETATLIKE" );
+}
+
+// Set bits of a number; nBitPos 1 is the lowest bit, -1 for an invalid argument
+// SetBit( nLong | cHexLong, nBitPos1, [nBitPosN, ...] ) --> nNewValue
+X_FUNC( SETBIT )
+{
+   x_numBit( ctx, 1 );
 }
 
 // Toggle * interpretation between blinking/background intensity
@@ -8023,13 +7851,6 @@ X_FUNC( TANH )
    X_ARGCHECK( ctx, X_ISNUM( ctx, 1 ), "TANH" );
 
    x_mathRetnd( ctx, tanh( x_parnd( ctx, 1 ) ), "TANH" );
-}
-
-// Create a new TBrowse object to be used with a database
-// TBrowseDB( [nTop], [nLeft], [nBottom], [nRight] ) --> oTBrowse
-X_FUNC( TBROWSEDB )
-{
-   x_errorRaiseNamed( ctx->result, 1900, "TBROWSEDB" );
 }
 
 // Retrieve an array or object from its pointer

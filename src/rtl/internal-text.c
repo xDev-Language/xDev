@@ -2410,47 +2410,189 @@ int x_wildMatch( const char *pattern, size_t patternLength, const char *text, si
    }
 }
 
-/* A number argument from 0 to maximum, or a string of hex digits; error 3106 or 1102 otherwise */
-static int s_numValue( X_CALL_CTX *ctx, int argument, uint64_t maximum, const char *operation, uint64_t *value )
+/* A number argument of the bit and byte functions, or hex digits after leading spaces; 0 when it is neither */
+static int s_ctNumber( X_CALL_CTX *ctx, int argument, int64_t *value )
 {
-   if( X_ISCHAR( ctx, argument ) )
-   {
-      if( !s_hexNumber( x_parc( ctx, argument ), x_parclen( ctx, argument ), value ) )
-      {
-         x_errorRaiseNamed( ctx->result, 3106, operation );
-         return 0;
-      }
+   const char *text;
+   size_t length, i = 0;
+   uint64_t hex;
 
-      if( *value <= maximum )
-         return 1;
-   }
-   else if( x_parnd( ctx, argument ) >= 0 && x_parnd( ctx, argument ) <= ( double )maximum )
+   if( X_ISNUM( ctx, argument ) )
    {
-      *value = x_paruint64( ctx, argument );
+      *value = x_parnint( ctx, argument );
       return 1;
    }
 
-   x_errorRaiseNamed( ctx->result, 1102, operation );
+   if( !X_ISCHAR( ctx, argument ) )
+      return 0;
 
-   return 0;
+   text = x_parc( ctx, argument );
+   length = x_parclen( ctx, argument );
+   while( i < length && text[i] == ' ' )
+      ++i;
+
+   if( i == length || s_hexValue( text[i] ) < 0 || !s_hexNumber( text + i, length - i, &hex ) )
+      return 0;
+
+   *value = ( int64_t )hex;
+
+   return 1;
 }
 
-/* NumHigh() and NumLow(): the high or low byte of a 16-bit value */
+/* SetBit() and ClearBit(): the bits at the positions 1 to 32 set or cleared; -1 for an invalid argument */
+void x_numBit( X_CALL_CTX *ctx, int set )
+{
+   int64_t value, position;
+   int i;
+
+   if( !s_ctNumber( ctx, 1, &value ) )
+   {
+      x_retnint( ctx, -1 );
+      return;
+   }
+
+   for( i = 2; i <= x_pcount( ctx ); ++i )
+   {
+      position = x_parnint( ctx, i );
+      if( !X_ISNUM( ctx, i ) || position < 1 || position > 32 )
+      {
+         x_retnint( ctx, -1 );
+         return;
+      }
+
+      if( set )
+         value |= ( int64_t )1 << ( position - 1 );
+      else
+         value &= ~( ( int64_t )1 << ( position - 1 ) );
+   }
+
+   x_retnint( ctx, value );
+}
+
+/* NumHigh() and NumLow(): the high or low byte of a 16-bit value; -1 for an invalid argument */
 void x_numByte( X_CALL_CTX *ctx, int high )
 {
-   uint64_t value;
+   int64_t value;
 
-   if( s_numValue( ctx, 1, 65535, IIF( high, "NUMHIGH", "NUMLOW" ), &value ) )
+   if( s_ctNumber( ctx, 1, &value ) && value >= 0 && value <= 0xFFFF )
       x_retni( ctx, ( int )( ( value >> IIF( high, 8, 0 ) ) & 0xFF ) );
+   else
+      x_retni( ctx, -1 );
 }
 
-/* NumMirr() and its family: the low bits of a value in reverse order */
-void x_numMirror( X_CALL_CTX *ctx, int argument, int bits, uint64_t maximum, const char *operation )
+/* IsBit(): one bit of a signed or unsigned 32-bit value; nBitPos 1 is the lowest bit, .F. for an invalid argument */
+void x_numIsBit( X_CALL_CTX *ctx )
 {
-   uint64_t value;
+   int64_t position = x_parnintdef( ctx, 2, 1 );
+   int64_t value = 0;
+   int valid = s_ctNumber( ctx, 1, &value ) && value >= INT32_MIN && value <= UINT32_MAX;
 
-   if( s_numValue( ctx, argument, maximum, operation, &value ) )
-      x_retnint( ctx, ( int64_t )x_mathMirror( value, bits ) );
+   if( !X_ISNIL( ctx, 2 ) && !X_ISNUM( ctx, 2 ) )
+      valid = 0;
+
+   x_retl( ctx, valid && position >= 1 && position <= 32 && ( ( value >> ( position - 1 ) ) & 1 ) );
+}
+
+/* NumAnd(), NumOr() and NumXor(): all arguments joined bit by bit; -1 for an invalid argument */
+void x_numLogic( X_CALL_CTX *ctx, char operation )
+{
+   int64_t result, value;
+   int i;
+
+   if( !s_ctNumber( ctx, 1, &result ) )
+   {
+      x_retnint( ctx, -1 );
+      return;
+   }
+
+   for( i = 2; i <= x_pcount( ctx ); ++i )
+   {
+      if( !s_ctNumber( ctx, i, &value ) )
+      {
+         x_retnint( ctx, -1 );
+         return;
+      }
+
+      if( operation == '&' )
+         result &= value;
+      else if( operation == '|' )
+         result |= value;
+      else
+         result ^= value;
+   }
+
+   x_retnint( ctx, result );
+}
+
+/* NumMirr() and NumMirrX(): the low bits of a value in reverse order; -1 for an invalid argument */
+void x_numMirror( X_CALL_CTX *ctx, int argument, int bits, int64_t maximum )
+{
+   int64_t value;
+
+   if( s_ctNumber( ctx, argument, &value ) && value >= 0 && value <= maximum && bits >= 1 && bits <= 32 )
+      x_retnint( ctx, ( int64_t )x_mathMirror( ( uint64_t )value, bits ) );
+   else
+      x_retnint( ctx, -1 );
+}
+
+/* NumNot(): the complement of a 16-bit value; -1 for an invalid argument */
+void x_numNot( X_CALL_CTX *ctx )
+{
+   int64_t value;
+
+   if( s_ctNumber( ctx, 1, &value ) )
+      x_retnint( ctx, ~value & 0xFFFF );
+   else
+      x_retnint( ctx, -1 );
+}
+
+/* NumRol(): a 16-bit value, or only its low byte, rotated to the left; -1 for an invalid argument */
+void x_numRol( X_CALL_CTX *ctx )
+{
+   int bits = IIF( x_parl( ctx, 3 ), 8, 16 );
+   int64_t mask = ( ( int64_t )1 << bits ) - 1;
+   int64_t value, shift, part;
+   int valid = s_ctNumber( ctx, 1, &value ) && s_ctNumber( ctx, 2, &shift );
+
+   if( !valid || value < 0 || value > 0xFFFF || shift < 0 || shift > 0xFFFF )
+   {
+      x_retnint( ctx, -1 );
+      return;
+   }
+
+   shift %= bits;
+   part = value & mask;
+   part = ( ( part << shift ) | ( part >> ( bits - shift ) ) ) & mask;
+
+   x_retnint( ctx, ( value & ~mask & 0xFFFF ) | part );
+}
+
+/* IntNeg(): an unsigned 16-bit or 32-bit value as a signed one; 0 for an invalid argument or one out of range */
+void x_numSigned( X_CALL_CTX *ctx )
+{
+   int bit32 = x_parl( ctx, 2 );
+   int64_t maximum = IIF( bit32, ( int64_t )UINT32_MAX, 0xFFFF );
+   int64_t value;
+
+   if( !s_ctNumber( ctx, 1, &value ) || value < 0 || value > maximum )
+      x_retnint( ctx, 0 );
+   else if( bit32 )
+      x_retnint( ctx, ( int32_t )( uint32_t )value );
+   else
+      x_retnint( ctx, ( int16_t )( uint16_t )value );
+}
+
+/* IntPos(): a signed 16-bit or 32-bit value as an unsigned one; 0 for an invalid argument */
+void x_numUnsigned( X_CALL_CTX *ctx )
+{
+   int64_t value;
+
+   if( !s_ctNumber( ctx, 1, &value ) )
+      x_retnint( ctx, 0 );
+   else if( x_parl( ctx, 2 ) )
+      x_retnint( ctx, ( uint32_t )value );
+   else
+      x_retnint( ctx, ( uint16_t )value );
 }
 
 /* StrPeek() reads and StrPoke() writes one byte of a string; a position outside does nothing */

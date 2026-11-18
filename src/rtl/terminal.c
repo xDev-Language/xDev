@@ -1839,7 +1839,8 @@ static void s_gtInkeyPoll( X_GT_BASE *gt )
    if( x_setCancel && key && x_inkeyKeyStd( key ) == K_ALT_C )
       x_quitRaise();
 
-   if( key )
+   /* an arrow key that moved a window with Scroll Lock on does not reach the program */
+   if( key && !x_ctMoveKey( key ) )
       gt->pFuncTable->InkeyPut( gt, key );
 }
 

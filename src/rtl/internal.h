@@ -587,8 +587,15 @@ char *x_hexEncode( const char *data, size_t length, const char *separator, size_
                    size_t *resultLength );
 char *x_hexDecode( const char *text, size_t length, size_t *resultLength );
 void x_hexToNum( X_CALL_CTX *ctx );
+void x_numBit( X_CALL_CTX *ctx, int set );
 void x_numByte( X_CALL_CTX *ctx, int high );
-void x_numMirror( X_CALL_CTX *ctx, int argument, int bits, uint64_t maximum, const char *operation );
+void x_numIsBit( X_CALL_CTX *ctx );
+void x_numLogic( X_CALL_CTX *ctx, char operation );
+void x_numMirror( X_CALL_CTX *ctx, int argument, int bits, int64_t maximum );
+void x_numNot( X_CALL_CTX *ctx );
+void x_numRol( X_CALL_CTX *ctx );
+void x_numSigned( X_CALL_CTX *ctx );
+void x_numUnsigned( X_CALL_CTX *ctx );
 void x_stringByte( X_CALL_CTX *ctx, int write );
 char *x_numToHex( uint64_t value, int width, size_t *resultLength );
 char *x_valToCStr( const X_ITEM *item, size_t *length );
@@ -1032,6 +1039,8 @@ void x_screenDispBoxExt( X_CALL_CTX *ctx, uint32_t foreground, uint32_t backgrou
 void x_screenDispOutAt( X_CALL_CTX *ctx );
 void x_screenDispOutAtExt( X_CALL_CTX *ctx, uint32_t foreground, uint32_t background );
 void x_screenInvertWin( X_CALL_CTX *ctx );
+void x_screenKbdStat( X_CALL_CTX *ctx );
+void x_screenKSet( X_CALL_CTX *ctx, int flag );
 void x_screenNToColor( X_CALL_CTX *ctx );
 void x_screenRestScreen( X_CALL_CTX *ctx );
 void x_screenSaveScreen( X_CALL_CTX *ctx );

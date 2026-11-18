@@ -389,6 +389,7 @@ int x_ctSetShadow( int color );
 int x_ctShadow( void );
 int x_ctSetMove( int mode );
 int x_ctStep( int rows, int cols );
+int x_ctMoveKey( int key );
 
 #ifdef __cplusplus
 }

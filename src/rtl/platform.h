@@ -328,13 +328,19 @@
 #endif
 
 /* ---------------------------------------------------------------------------------------------
-   Path separator of the operating system
+   Path characters of the operating system
    --------------------------------------------------------------------------------------------- */
 
 #if X_OS_WINDOWS
 #   define X_OS_PATH_SEPARATOR '\\'
+#   define X_OS_PATH_DELIMITERS "\\/:"
+#   define X_OS_PATH_LIST_SEPARATOR ";"
+#   define X_OS_DRIVE_SEPARATOR ":"
 #else
 #   define X_OS_PATH_SEPARATOR '/'
+#   define X_OS_PATH_DELIMITERS "/"
+#   define X_OS_PATH_LIST_SEPARATOR ":"
+#   define X_OS_DRIVE_SEPARATOR ""
 #endif
 
 #endif /* PLATFORM_H */

@@ -1682,8 +1682,8 @@ void x_arrayACopy( X_CALL_CTX *ctx )
 {
    const X_ITEM *source = x_paritem( ctx, 1 );
    X_ITEM *target = ( X_ITEM * )x_paritem( ctx, 2 );
-   int64_t start = IIF( x_pcount( ctx ) >= 3, x_parnint( ctx, 3 ), 1 );
-   int64_t position = IIF( x_pcount( ctx ) >= 5, x_parnint( ctx, 5 ), 1 );
+   int64_t start = x_parnintdef( ctx, 3, 1 );
+   int64_t position = x_parnintdef( ctx, 5, 1 );
    int64_t i;
 
    if( start < 1 )
@@ -1694,7 +1694,7 @@ void x_arrayACopy( X_CALL_CTX *ctx )
 
    int64_t available = x_arrayLen( source ) - start + 1;
    int64_t room = x_arrayLen( target ) - position + 1;
-   int64_t count = IIF( x_pcount( ctx ) >= 4, x_parnint( ctx, 4 ), available );
+   int64_t count = x_parnintdef( ctx, 4, available );
 
    if( count > available )
       count = available;
