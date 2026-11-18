@@ -1,0 +1,47 @@
+# Builds xDev on Windows in MSYS2 CLANG64, as doc/README.md describes, and compiles and runs one example
+name: Build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: CLANG64
+          update: true
+          install: make
+          pacboy: >-
+            clang:p
+            lld:p
+            llvm:p
+            pkgconf:p
+            sdl3:p
+            glfw:p
+            zlib:p
+            libpng:p
+            openssl:p
+            curl:p
+
+      - name: Build
+        run: |
+          set -e
+          make
+          make install
+
+      - name: Compile and run an example
+        run: |
+          set -e
+          export PATH="$PWD/bin:$PATH"
+          cd examples
+          xdev class.prg
+          ./class

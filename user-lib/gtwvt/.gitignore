@@ -1,0 +1,6 @@
+# xDev GTWVT
+*.a
+*.exe
+build/
+lib
+tmp

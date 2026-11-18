@@ -1,0 +1,6 @@
+# xDev JSON
+*.a
+*.exe
+build/
+lib
+tmp

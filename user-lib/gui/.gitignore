@@ -1,0 +1,6 @@
+# xDev GUI
+*.a
+*.exe
+build/
+lib
+tmp

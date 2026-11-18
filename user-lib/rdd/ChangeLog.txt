@@ -1,0 +1,46 @@
+xDev 7.0.0 RDD - ChangeLog
+
+How to write an entry:
+  - New entries go at the top, directly below this description.
+  - Header: ISO date and the part of the library, e.g. "2026-11-16  xDev 7.0.0 RDD".
+  - Below the header: the file path, then one line per change with a mark:
+      +  added
+      -  removed
+      *  changed
+      !  fixed
+  - English, short sentences. Describe what changes for the user or in the behaviour;
+    details stay in the git history.
+
+==============================================================================
+
+2026-11-16  xDev 7.0.0 RDD
+  * src/dbf-file.c
+    ! internal locks (table header, index, memo) wait up to 10 s instead of failing at once
+    - header byte 14 no longer blocks a table after a write error
+    * an exclusive table no longer re-reads its header on every record move
+    * the memo type comes from the table version byte, not from the driver name
+    * X_DBF_PLATFORM: tables are created and opened on Windows; Linux is planned
+  * src/dbf-core.c
+    ! DbCloseArea() always closes the work area, also after a write error
+    * one record buffer per work area instead of one per record move
+  * src/dbf-api.c
+    ! DbCloseAll() closes every work area and reports the first error
+    * every argument has its own X_ARGCHECK
+    - dbBulkCompare, dbBulkError, dbBulkRead, dbBulkSize, dbBulkTemp, dbBulkWrite,
+      dbCsvReadRow, dbTextDate, dbTextReadLine
+  * src/dbf-value.c
+    ! a value too wide for an N field is an error and the field keeps its value
+  * src/dbf-order.c, src/dbf-ntx.c, src/dbf-cdx.c
+    * index files are forced to disk on DbCommit(), DbClearIndex() and close, not on every change
+    * OrdKeyCount() and OrdKeyNo() keep their results; OrdKeyNo() counts only from the last position
+  + src/dbf-bulk.c
+    + DbEval() and the bulk operations written in C: DbCount, DbSum, DbAverage, DbCopy,
+      DbCopyStruct, DbCopyXStruct, DbCreateFrom, DbAppendFrom, DbSort, DbJoin, DbTotal,
+      DbUpdate, DbSDF, DbDelim, DbExportCsv, DbImportCsv
+    ! DbAverage() of no records returns 0
+    ! DbUpdate() without lRandom works as with .F.
+  - src/dbf-bulk.prg
+  * src/dbf-core.h
+    * moved from include/xdev/xdev-dbf.h; the C header is internal
+  * all sources
+    * formatted with clang-format

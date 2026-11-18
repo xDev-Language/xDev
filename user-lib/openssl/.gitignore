@@ -1,0 +1,6 @@
+# xDev OpenSSL
+*.a
+*.exe
+build/
+lib
+tmp

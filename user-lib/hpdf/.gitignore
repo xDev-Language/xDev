@@ -1,0 +1,7 @@
+# xDev HPDF
+*.a
+*.exe
+*.pdf
+build/
+lib
+tmp

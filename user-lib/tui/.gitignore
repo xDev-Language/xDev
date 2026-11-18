@@ -1,0 +1,6 @@
+# xDev TUI
+*.a
+*.exe
+build/
+lib
+tmp

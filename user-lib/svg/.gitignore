@@ -1,0 +1,6 @@
+# xDev SVG
+*.a
+*.exe
+build/
+lib
+tmp
