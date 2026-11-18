@@ -46,11 +46,24 @@ xdev tictactoe.prg
 
 `tictactoe.exe` is written to the current folder. Libraries in `lib/xdev` are linked automatically.
 
-`-each` builds every file as a separate program, so one command builds a whole folder:
+`-each` builds every file as a separate program, named after its `.prg` file, for example `Alert.exe`.
+One command builds a whole folder:
 
 ```sh
 cd tests
 xdev -each *.prg
 ```
 
-Every program gets the name of its `.prg` file, for example `Alert.exe`.
+Run all programs of the folder in the MSYS2 shell:
+
+```sh
+for f in *.exe; do "./$f"; done
+```
+
+and in `cmd`:
+
+```bat
+for %f in (*.exe) do "%f"
+```
+
+In a `.bat` file write `%%f` instead of `%f`.
