@@ -79,6 +79,90 @@ X_FUNC( ALIAS )
    x_retc( ctx, IIF( area != NULL, area->alias, "" ) );
 }
 
+// Export the contents of a BLOB pointer to a file
+// BLOBDIRECTEXPORT( nPointer, cTargetFile, [nMode] ) --> lSuccess
+X_FUNC( BLOBDIRECTEXPORT )
+{
+   x_errorRaiseNamed( ctx->result, 1900, "BLOBDIRECTEXPORT" );
+}
+
+// Retrieve data from a BLOB file without referencing a field
+// BLOBDIRECTGET( nPointer, [nStart], [nCount] ) --> expBLOB
+X_FUNC( BLOBDIRECTGET )
+{
+   x_errorRaiseNamed( ctx->result, 1900, "BLOBDIRECTGET" );
+}
+
+// Import a file into a BLOB file and return pointer to the data
+// BLOBDIRECTIMPORT( nOldPointer, cSourceFile ) --> nNewPointer
+X_FUNC( BLOBDIRECTIMPORT )
+{
+   x_errorRaiseNamed( ctx->result, 1900, "BLOBDIRECTIMPORT" );
+}
+
+// Put data in a BLOB file without referencing a specific field
+// BLOBDIRECTPUT( nOldPointer, uBLOB ) --> nNewPointer
+X_FUNC( BLOBDIRECTPUT )
+{
+   x_errorRaiseNamed( ctx->result, 1900, "BLOBDIRECTPUT" );
+}
+
+// Copy the contents of a memo field number to a BLOB file
+// BLOBEXPORT( nFieldPos, cTargetFile, [nMode] ) --> lSuccess
+X_FUNC( BLOBEXPORT )
+{
+   x_errorRaiseNamed( ctx->result, 1900, "BLOBEXPORT" );
+}
+
+// Get the contents of a BLOB, identified by memo field number
+// BLOBGET( nFieldPos, [nStart], [nCount] ) --> uBLOB
+X_FUNC( BLOBGET )
+{
+   x_errorRaiseNamed( ctx->result, 1900, "BLOBGET" );
+}
+
+// Read the contents of a BLOB file into a memo field
+// BLOBIMPORT( nFieldPos, cSourceFile ) --> lSuccess
+X_FUNC( BLOBIMPORT )
+{
+   x_errorRaiseNamed( ctx->result, 1900, "BLOBIMPORT" );
+}
+
+// Delete the root area of a BLOB file
+// BlobRootDelete( ) --> lSuccess
+X_FUNC( BLOBROOTDELETE )
+{
+   x_errorRaiseNamed( ctx->result, 1900, "BLOBROOTDELETE" );
+}
+
+// Retrieve the data from the root area of a BLOB file
+// BLOBROOTGET( ) --> uBLOB
+X_FUNC( BLOBROOTGET )
+{
+   x_errorRaiseNamed( ctx->result, 1900, "BLOBROOTGET" );
+}
+
+// Obtain a lock on the root area of a BLOB file
+// BLOBROOTLOCK( ) --> lSuccess
+X_FUNC( BLOBROOTLOCK )
+{
+   x_errorRaiseNamed( ctx->result, 1900, "BLOBROOTLOCK" );
+}
+
+// Store data in the root area of a BLOB file
+// BLOBROOTPUT( uBLOB ) --> lSuccess
+X_FUNC( BLOBROOTPUT )
+{
+   x_errorRaiseNamed( ctx->result, 1900, "BLOBROOTPUT" );
+}
+
+// Release the lock on a BLOB file's root area
+// BLOBROOTUNLOCK( ) --> NIL
+X_FUNC( BLOBROOTUNLOCK )
+{
+   x_errorRaiseNamed( ctx->result, 1900, "BLOBROOTUNLOCK" );
+}
+
 // Determine when beginning of file is encountered
 // Bof( ) --> lBoundary
 X_FUNC( BOF )
@@ -1478,6 +1562,13 @@ X_FUNC( LUPDATE )
       x_dbfRaise( ctx, x_dbfAreaInfo( area, DBI_LASTUPDATE, ctx->result ), "LUPDATE" );
 }
 
+// Set an RDD inheritance chain for the DBFMEMO database driver
+// MEMOSETSUPER( [cSuperRDD] ) --> cOldSuperName
+X_FUNC( MEMOSETSUPER )
+{
+   x_errorRaiseNamed( ctx->result, 1900, "MEMOSETSUPER" );
+}
+
 // Determine if a network command has failed
 // NetErr( [lNewError] ) --> lError
 X_FUNC( NETERR )
@@ -1711,6 +1802,13 @@ X_FUNC( ORDKEY )
    x_dbfOrderInfoApi( ctx, DBOI_EXPRESSION, NULL, "ORDKEY" );
 }
 
+// Add a key to a custom built order
+// ordKeyAdd( [cOrder | nPosition], [cIndexFile],[expKeyValue] ) --> lSuccess
+X_FUNC( ORDKEYADD )
+{
+   x_errorRaiseNamed( ctx->result, 1900, "ORDKEYADD" );
+}
+
 // Return the number of keys in an order
 // ordKeyCount( [cOrder | nPosition], [cIndexFile] ) --> nKeys
 X_FUNC( ORDKEYCOUNT )
@@ -1724,6 +1822,20 @@ X_FUNC( ORDKEYCOUNT )
    X_ARGCHECK_OPT( ctx, 2, X_ISNIL( ctx, 2 ) || x_dbfString( x_paritem( ctx, 2 ) ), "ORDKEYCOUNT" );
 
    x_dbfOrderInfoApi( ctx, DBOI_KEYCOUNT, NULL, "ORDKEYCOUNT" );
+}
+
+// Delete a key from a custom built order
+// ordKeyDel( [cOrder | nPosition], [cIndexFile], [expKeyValue] ) --> lSuccess
+X_FUNC( ORDKEYDEL )
+{
+   x_errorRaiseNamed( ctx->result, 1900, "ORDKEYDEL" );
+}
+
+// Move to a record specified by its logical record number
+// ordKeyGoto( nKeyNo ) --> lSuccess
+X_FUNC( ORDKEYGOTO )
+{
+   x_errorRaiseNamed( ctx->result, 1900, "ORDKEYGOTO" );
 }
 
 // Get the logical record number of the current record
@@ -1852,6 +1964,13 @@ X_FUNC( ORDSETRELATION )
    X_ARGCHECK( ctx, x_dbfOptional( ctx, 4 ) || X_ISLOG( ctx, 4 ), "ORDSETRELATION" );
 
    x_dbfSetRelation( ctx, 1, "ORDSETRELATION" );
+}
+
+// Move record pointer to the next or previous unique key
+// ordSkipUnique( [nDirection] ) --> lSuccess
+X_FUNC( ORDSKIPUNIQUE )
+{
+   x_errorRaiseNamed( ctx->result, 1900, "ORDSKIPUNIQUE" );
 }
 
 // Return or change information about a database driver
