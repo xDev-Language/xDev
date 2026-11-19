@@ -13,6 +13,30 @@ Text user interface for the [xDev](https://github.com/xDev-Language) language, w
 - `TSidebar`: a menu at a side of the screen with groups and submenus.
 - The constants in `tui.ch`, `button.ch`, `getexit.ch`, `tbrowse.ch` and `dbedit.ch`.
 
+## Planned
+
+Functions that belong to this library and are not written yet:
+
+- `Browse( [nTop], [nLeft], [nBottom], [nRight] ) --> lSuccess`
+- `CountGets( ) --> nGetCount`
+- `CurrentGet( ) --> nCurrentGetPos`
+- `GetFldCol( [nGetPos] ) --> nScreenColumn`
+- `GetFldRow( [nGetPos] ) --> nScreenRow`
+- `GetFldVar( [nGetPos] ) --> cGetVarName`
+- `GetSecret( cInit, [nRow], [nCol], [lSay], [cSay] ) --> cString`
+- `GuiApplyKey( oGet, nKey, oMenu, oGetMsg ) --> NIL`
+- `GuiGetPostValidate( oGet, oControl, [oGetMsg] ) --> lDataIsValid`
+- `GuiGetPreValidate( oGet, oControl, [oGetMsg] ) --> lCanEdit`
+- `GuiReader( oGet, oGetlist, [oMenu], [oGetMsg] ) --> NIL`
+- `MemoEdit( [cString], [nTop], [nLeft], [nBottom], [nRight], [lEditMode], [cUserFunction], [nLineLength], [nTabSize], [nTextBufferRow], [nTextBufferColumn], [nWindowRow], [nWindowColumn] ) --> cTextBuffer`
+- `MenuModal( oTopBar, nSelection, nMsgRow, nMsgLeft, nMsgRight, cMsgColor ) --> MenuID`
+- `ReadFormat( [bFormat] ) --> bCurrentFormat`
+- `ReadKey( ) --> nReadkeyCode`
+- `ReadUpdated( [lChanged] ) --> lCurrentSetting`
+- `RestGets( aSavedGets ) --> lSuccess`
+- `SaveGets( ) --> aSavedGetlist`
+- `TBrowseDB( [nTop], [nLeft], [nBottom], [nRight] ) --> oTBrowse`
+
 ## Platforms
 
 - [x] Windows
