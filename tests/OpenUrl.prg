@@ -4,12 +4,12 @@
  * Open URL test
  *
  * $ONELINER$
- * Open a UTF-8 Wikipedia link through the active GT driver.
+ * Open a UTF-8 Wikipedia link through the operating system.
  *
  * $DESCRIPTION$
  * The test validates the URL with several string functions and then asks the
- * active GT driver to open it with the system browser. The final line is OK
- * only when GtInfo( GTI_OPENURL ) reports that the link was opened.
+ * operating system to open it with the default browser. The checks are printed
+ * to the ordinary console.
  *
  * $EXAMPLES$
  *
@@ -19,7 +19,7 @@
  * URL has the HTTPS prefix           OK
  * URL contains the Wikipedia domain OK
  * URL length is positive             OK
- * Wikipedia link opened              OK
+ * Wikipedia link launch requested    OK
  *
  * $DOCEND$
  */
@@ -35,7 +35,8 @@
 PROCEDURE Main()
 
    LOCAL cUrl := "https://pl.wikipedia.org/wiki/Znaki_diakrytyczne"
-   LOCAL lOpened
+
+   LOCAL lStdoutCon := GtInfo( GTI_STDOUTCON, .F. )
 
    Check( 'URL is a character string          ', ValType( cUrl ), "C" )
    Check( 'URL is valid UTF-8                 ', StrIsUTF8( cUrl ), .T. )
@@ -43,8 +44,9 @@ PROCEDURE Main()
    Check( 'URL contains the Wikipedia domain ', At( "wikipedia.org", cUrl ) > 0, .T. )
    Check( 'URL length is positive             ', Len( cUrl ) > 0, .T. )
 
-   lOpened := GtInfo( GTI_OPENURL, cUrl )
-   Check( 'Wikipedia link opened              ', lOpened, .T. )
+   Check( 'Wikipedia link launch requested    ', GtInfo( GTI_OPENURL, cUrl ), .T. )
+
+   GtInfo( GTI_STDOUTCON, lStdoutCon )
 
 RETURN
 
