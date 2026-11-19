@@ -4513,6 +4513,25 @@ void x_textNumAt( X_CALL_CTX *ctx )
    x_retnint( ctx, count );
 }
 
+/* Occurs(): count the occurrences of a substring, also those that overlap */
+void x_textOccurs( X_CALL_CTX *ctx )
+{
+   const char *search = x_parc( ctx, 1 );
+   size_t searchLength = x_parclen( ctx, 1 );
+   const char *text = x_parc( ctx, 2 );
+   size_t textLength = x_parclen( ctx, 2 );
+   size_t offset;
+   int64_t count = 0;
+
+   for( offset = 0; searchLength > 0 && offset + searchLength <= textLength; ++offset )
+   {
+      if( memcmp( text + offset, search, searchLength ) == 0 )
+         ++count;
+   }
+
+   x_retnint( ctx, count );
+}
+
 /* PadLeft(): pad a character string on the left */
 void x_textPadLeft( X_CALL_CTX *ctx )
 {

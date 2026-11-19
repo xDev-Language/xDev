@@ -306,6 +306,7 @@ int x_clsAddFriendClass( X_CLASS_HANDLE classHandle, X_CLASS_HANDLE friendHandle
 int x_clsAddParent( X_CLASS_HANDLE classHandle, X_CLASS_HANDLE parentHandle );
 int x_clsAssociate( X_CLASS_HANDLE classHandle );
 int x_clsDiscard( X_CLASS_HANDLE classHandle );
+int x_clsUsesCode( const void *start, size_t size );
 void x_clsGCVisitInline( void );
 void x_clsGCClearDeadInline( void );
 int x_clsIsAssociated( X_CLASS_HANDLE classHandle );

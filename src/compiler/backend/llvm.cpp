@@ -17,6 +17,7 @@
 #include "interface.hpp"
 #include "operators.h"
 #include "statements.h"
+#include "version.h"
 
 #include <algorithm>
 #include <cmath>
@@ -282,6 +283,7 @@ struct X_LLVM::IMPL
    llvm::Value *currentArgs = nullptr;
    std::string currentFunctionName; /* upper-case key, the source of PROCNAME() */
    bool currentClassMethod = false;
+   bool sharedModule = false; /* --shared: the public functions are exported from the DLL */
    unsigned tempIndex = 0;
 
    std::unordered_map<std::string, llvm::Value *> locals;
@@ -9081,6 +9083,9 @@ struct X_LLVM::IMPL
       const auto linkage = IIF( internal, llvm::Function::InternalLinkage, llvm::Function::ExternalLinkage );
       llvm::Function *f = llvm::Function::Create( functionAbiType(), linkage, key, module.get() );
 
+      if( sharedModule && !internal )
+         f->setDLLStorageClass( llvm::GlobalValue::DLLExportStorageClass );
+
       if( lifecycle )
          lifecycleNames.insert( key );
 
@@ -9459,6 +9464,15 @@ struct X_LLVM::IMPL
    {
       std::string classInterface;
 
+      for( const X_FUNCTION &fn : program.functions )
+      {
+         if( sharedModule && fn.role == X_PROC_ROLE::NORMAL && s_key( fn.name ) == "MAIN" )
+         {
+            fail( "modul DLL (--shared) nie moze zawierac FUNCTION Main(); Main ma tylko program" );
+            return false;
+         }
+      }
+
       for( const X_CALLBACK_DECL &callback : program.callbacks )
          callbackTypes.emplace( s_key( callback.name ), &callback );
 
@@ -9489,7 +9503,27 @@ struct X_LLVM::IMPL
       if( !generateModuleLifecycle( libraryModule ) || ( !libraryModule && !generateEntryMain() ) )
          return false;
 
-      return generateBlocks();
+      if( !generateBlocks() )
+         return false;
+
+      if( sharedModule )
+         generateModuleVersion();
+
+      return true;
+   }
+
+   /* --shared: the exported x_moduleVersion() returns X_VER_MODULE for ModuleLoad(); every PRG of the module
+      has it, the linker keeps one. Weak ODR, because the optimizer removes an unused link-once function */
+   void generateModuleVersion()
+   {
+      const auto linkage = llvm::Function::WeakODRLinkage;
+      llvm::FunctionType *type = llvm::FunctionType::get( i32Ty(), false );
+      llvm::Function *version = llvm::Function::Create( type, linkage, "x_moduleVersion", module.get() );
+
+      version->setComdat( module->getOrInsertComdat( "x_moduleVersion" ) );
+      version->setDLLStorageClass( llvm::GlobalValue::DLLExportStorageClass );
+      builder.SetInsertPoint( llvm::BasicBlock::Create( context, "entry", version ) );
+      builder.CreateRet( constant32( X_VER_MODULE ) );
    }
 };
 
@@ -9622,7 +9656,7 @@ X_LLVM::~X_LLVM() = default;
 
 /* The module of a program, verified and optimized */
 bool X_LLVM::generate( const X_PROGRAM &program, std::string &error, bool libraryModule,
-                       const std::function<std::string( int )> &location )
+                       const std::function<std::string( int )> &location, bool sharedModule )
 try
 {
    const char *invalid = "wygenerowany modul LLVM jest niepoprawny (blad wewnetrzny kompilatora): ";
@@ -9637,6 +9671,7 @@ try
    }
 
    impl.sourceLoc = location;
+   impl.sharedModule = sharedModule;
    if( !impl.generateModule( program, libraryModule ) )
    {
       error = impl.error;
@@ -9753,14 +9788,15 @@ static bool s_resourceEntry( llvm::Module &module, llvm::StructType *entryTy, co
    return true;
 }
 
-/* Embedded files: the x_resources table { name without extension, data, size } ends with an unnamed entry
-   and replaces the empty table from the RTL */
+/* Embedded files: the table { name without extension, data, size } ends with an unnamed entry; a global
+   constructor gives it to the runtime through x_resourcesRegister(), also when the runtime is a DLL */
 bool x_llvmResources( const std::vector<std::string> &files, const std::string &path, std::string &error )
 {
-   const auto linkage = llvm::GlobalValue::ExternalLinkage;
+   const auto linkage = llvm::GlobalValue::PrivateLinkage;
    llvm::LLVMContext context;
    llvm::Module module( "resources", context );
    llvm::PointerType *ptrTy = llvm::PointerType::getUnqual( context );
+   llvm::Type *voidTy = llvm::Type::getVoidTy( context );
    llvm::Type *sizeTy = llvm::Type::getInt64Ty( context );
    llvm::StructType *entryTy = llvm::StructType::get( context, { ptrTy, ptrTy, sizeTy } );
    llvm::Constant *null = llvm::ConstantPointerNull::get( ptrTy );
@@ -9768,6 +9804,9 @@ bool x_llvmResources( const std::vector<std::string> &files, const std::string &
    std::unordered_set<std::string> names;
    llvm::ArrayType *tableTy;
    llvm::Constant *table;
+   llvm::GlobalVariable *tableVar;
+   llvm::Function *registration;
+   llvm::FunctionCallee registerTable;
 
    for( const std::string &file : files )
    {
@@ -9778,7 +9817,17 @@ bool x_llvmResources( const std::vector<std::string> &files, const std::string &
    entries.push_back( llvm::ConstantStruct::get( entryTy, { null, null, llvm::ConstantInt::get( sizeTy, 0 ) } ) );
    tableTy = llvm::ArrayType::get( entryTy, entries.size() );
    table = llvm::ConstantArray::get( tableTy, entries );
-   new llvm::GlobalVariable( module, tableTy, true, linkage, table, "x_resources" );
+   tableVar = new llvm::GlobalVariable( module, tableTy, true, linkage, table, "x.resources" );
+
+   registration = llvm::Function::Create( llvm::FunctionType::get( voidTy, false ), llvm::Function::InternalLinkage,
+                                          "x.resources.register", module );
+   registerTable = module.getOrInsertFunction( "x_resourcesRegister", voidTy, ptrTy );
+
+   llvm::IRBuilder<> builder( llvm::BasicBlock::Create( context, "entry", registration ) );
+
+   builder.CreateCall( registerTable, { tableVar } );
+   builder.CreateRetVoid();
+   llvm::appendToGlobalCtors( module, registration, 65535 );
 
    return s_writeObject( module, path, error );
 }

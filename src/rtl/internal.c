@@ -99,6 +99,13 @@ enum
    X_GC_CYCLE_MINIMUM = 1024
 };
 
+/* NationMsg(): the messages of the national language, numbered from 1; IsAffirm() reads "Y/N" */
+static const char *const s_nationMessages[] = {
+   "Database Files    # Records    Last Update     Size", "Do you want more samples?", "Page No.",
+   "** Subtotal **", "* Subsubtotal *", "*** Total ***", "Ins", "   ", "Invalid date", "Range: ", " - ", "Y/N",
+   "INVALID EXPRESSION"
+};
+
 static const X_ERROR_DEF s_errorDefinitions[] = {
    { 2, 14, 1003, 0, "BASE", "Variable does not exist", "variable" },
    { 2, 13, 1004, 0, "BASE", "Message does not exist", "message" },
@@ -3620,6 +3627,21 @@ int x_stor( X_CALL_CTX *ctx, int n )
    return 1;
 }
 
+/* Store a copy of any value into argument n passed by reference */
+int x_storitem( X_CALL_CTX *ctx, const X_ITEM *value, int n )
+{
+   X_ITEM *item = s_storeSlot( ctx, n );
+   X_ITEM copy = X_ITEM_NIL_INIT;
+
+   if( item == NULL )
+      return 0;
+
+   x_itemCopy( &copy, value );
+   x_itemReplace( item, copy );
+
+   return 1;
+}
+
 int x_storni( X_CALL_CTX *ctx, int value, int n )
 {
    return s_itemSetInteger( s_storeSlot( ctx, n ), value );
@@ -5041,10 +5063,53 @@ void x_itemValType( X_CALL_CTX *ctx )
    x_retc( ctx, type );
 }
 
+/* BuildDate(): the date and the time of the build, the same as of Version() */
+void x_sysBuildDate( X_CALL_CTX *ctx )
+{
+   x_retc( ctx, __DATE__ " " __TIME__ );
+}
+
+/* Default(): a variable passed by reference that holds NIL gets the default value */
+void x_sysDefault( X_CALL_CTX *ctx )
+{
+   if( X_ISNIL( ctx, 1 ) )
+      x_storitem( ctx, x_paritem( ctx, 2 ), 1 );
+
+   x_ret( ctx );
+}
+
+/* IsAffirm() and IsNegative(): does a text start with the Y or the N of "Y/N", in any case? */
+void x_sysNationAnswer( X_CALL_CTX *ctx, int negative )
+{
+   const char *text = x_parc( ctx, 1 );
+   char answer = s_nationMessages[11][IIF( negative, 2, 0 )];
+
+   x_retl( ctx, x_parclen( ctx, 1 ) > 0 && toupper( ( unsigned char )text[0] ) == answer );
+}
+
+/* NationMsg(): a message of the national language by its number, "" for another number */
+void x_sysNationMsg( X_CALL_CTX *ctx )
+{
+   int64_t number = x_parnint( ctx, 1 );
+
+   if( x_pcount( ctx ) == 0 )
+      x_retc( ctx, "Invalid argument" );
+   else if( X_ISNUM( ctx, 1 ) && number >= 1 && number <= 13 )
+      x_retc( ctx, s_nationMessages[number - 1] );
+   else
+      x_retc( ctx, "" );
+}
+
 /* Version(): return xDev version information */
 void x_sysVersion( X_CALL_CTX *ctx )
 {
-   switch( x_parnintdef( ctx, 1, X_VERSION_XDEV ) )
+   x_sysVersionOf( ctx, x_parnintdef( ctx, 1, X_VERSION_XDEV ) );
+}
+
+/* The version information of one selector of Version() */
+void x_sysVersionOf( X_CALL_CTX *ctx, int64_t selector )
+{
+   switch( selector )
    {
    case X_VERSION_XDEV:
       x_retc( ctx, X_VER_STRING );

@@ -269,6 +269,9 @@ void x_commandArgValue( X_CALL_CTX *ctx, int64_t position );
 void x_modulesInit( int32_t argc, const X_ARG *args );
 void x_modulesExit( void );
 void x_modulesClear( void );
+void x_moduleLoad( X_CALL_CTX *ctx );
+void x_moduleCall( X_CALL_CTX *ctx );
+void x_moduleUnload( X_CALL_CTX *ctx );
 int x_runtimeInit( void );
 void x_runtimeExit( void );
 
@@ -383,6 +386,7 @@ void x_fsCurDirCall( X_CALL_CTX *ctx );
 void x_fsCurDirXCall( X_CALL_CTX *ctx );
 void x_fsCurDriveCall( X_CALL_CTX *ctx );
 void x_fsCwdCall( X_CALL_CTX *ctx );
+void x_fsDefPathCall( X_CALL_CTX *ctx );
 void x_fsDeleteFileCall( X_CALL_CTX *ctx );
 void x_fsDirExistsCall( X_CALL_CTX *ctx );
 void x_fsDirNameCall( X_CALL_CTX *ctx );
@@ -418,6 +422,8 @@ void x_fsFNameSplitCall( X_CALL_CTX *ctx );
 void x_fsFReadCall( X_CALL_CTX *ctx );
 void x_fsFReadStrCall( X_CALL_CTX *ctx );
 void x_fsFWriteCall( X_CALL_CTX *ctx );
+void x_fsIsDirectoryCall( X_CALL_CTX *ctx );
+void x_fsIsDiskCall( X_CALL_CTX *ctx );
 void x_fsMD5FileCall( X_CALL_CTX *ctx );
 void x_fsMemoReadCall( X_CALL_CTX *ctx );
 void x_fsMemoWritCall( X_CALL_CTX *ctx );
@@ -497,7 +503,7 @@ int x_fileLock( const X_ITEM *item, int64_t start, int64_t length, int type, int
 char *x_fileLoad( const char *path, size_t limit, size_t *length );
 
 /* Files put into the executable */
-extern const X_RESOURCE x_resources[];
+void x_resourcesRegister( const X_RESOURCE *resources );
 const unsigned char *x_resourceFind( const char *name, size_t *length );
 
 /* Files: FileStr(), StrFile(), FileDate(), SetFDaTi(), FileDelete(), FileValid(), TrueName()... */
@@ -880,6 +886,7 @@ void x_retptrGC( X_CALL_CTX *ctx, void *ptr );
    --------------------------------------------------------------------------------------------- */
 
 int x_stor( X_CALL_CTX *ctx, int n );
+int x_storitem( X_CALL_CTX *ctx, const X_ITEM *value, int n );
 int x_storc( X_CALL_CTX *ctx, const char *value, int n );
 int x_storclen( X_CALL_CTX *ctx, const char *value, size_t length, int n );
 int x_storclen_buffer( X_CALL_CTX *ctx, char *value, size_t length, int n );
@@ -1031,24 +1038,43 @@ void x_screenAChoice( X_CALL_CTX *ctx );
 void x_screenAlert( X_CALL_CTX *ctx );
 void x_screenCharWin( X_CALL_CTX *ctx );
 void x_screenClearEol( X_CALL_CTX *ctx );
+void x_screenClearSlow( X_CALL_CTX *ctx );
 void x_screenClearWin( X_CALL_CTX *ctx );
+void x_screenClrArea( X_CALL_CTX *ctx );
 void x_screenCls( X_CALL_CTX *ctx );
+void x_screenColorIndex( X_CALL_CTX *ctx );
+void x_screenColorRepl( X_CALL_CTX *ctx );
 void x_screenColorWin( X_CALL_CTX *ctx );
+void x_screenCSetCurs( X_CALL_CTX *ctx );
 void x_screenDispBox( X_CALL_CTX *ctx );
 void x_screenDispBoxExt( X_CALL_CTX *ctx, uint32_t foreground, uint32_t background );
 void x_screenDispOutAt( X_CALL_CTX *ctx );
 void x_screenDispOutAtExt( X_CALL_CTX *ctx, uint32_t foreground, uint32_t background );
 void x_screenInvertWin( X_CALL_CTX *ctx );
 void x_screenKbdStat( X_CALL_CTX *ctx );
+void x_screenKeyPut( X_CALL_CTX *ctx );
 void x_screenKSet( X_CALL_CTX *ctx, int flag );
 void x_screenNToColor( X_CALL_CTX *ctx );
+void x_screenRestCursor( X_CALL_CTX *ctx );
 void x_screenRestScreen( X_CALL_CTX *ctx );
+void x_screenRestSetKey( X_CALL_CTX *ctx );
+void x_screenSaveCursor( X_CALL_CTX *ctx );
 void x_screenSaveScreen( X_CALL_CTX *ctx );
+void x_screenSayDown( X_CALL_CTX *ctx );
+void x_screenSayMoveIn( X_CALL_CTX *ctx );
+void x_screenSayScreen( X_CALL_CTX *ctx );
+void x_screenSaySpread( X_CALL_CTX *ctx );
+void x_screenScreenMark( X_CALL_CTX *ctx );
 void x_screenScroll( X_CALL_CTX *ctx );
 void x_screenSetClrPair( X_CALL_CTX *ctx );
 void x_screenSetColorExt( X_CALL_CTX *ctx, uint32_t foreground, uint32_t background );
 void x_screenSetKey( X_CALL_CTX *ctx );
+void x_screenSetKeyArray( X_CALL_CTX *ctx );
+void x_screenSetKeyCheck( X_CALL_CTX *ctx );
+void x_screenSetKeyGet( X_CALL_CTX *ctx );
+void x_screenSetKeySave( X_CALL_CTX *ctx, int replace );
 void x_screenSetMode( X_CALL_CTX *ctx );
+void x_screenSetPosBS( X_CALL_CTX *ctx );
 void x_screenWait( X_CALL_CTX *ctx );
 
 /* internal-ct.c */
@@ -1064,7 +1090,12 @@ void x_sysRun( X_CALL_CTX *ctx );
 void x_sysRunCapture( X_CALL_CTX *ctx );
 void x_setSet( X_CALL_CTX *ctx );
 void x_itemValType( X_CALL_CTX *ctx );
+void x_sysBuildDate( X_CALL_CTX *ctx );
+void x_sysDefault( X_CALL_CTX *ctx );
+void x_sysNationAnswer( X_CALL_CTX *ctx, int negative );
+void x_sysNationMsg( X_CALL_CTX *ctx );
 void x_sysVersion( X_CALL_CTX *ctx );
+void x_sysVersionOf( X_CALL_CTX *ctx, int64_t selector );
 
 /* internal-date.c */
 long x_dateParam( X_CALL_CTX *ctx, int n );
@@ -1084,7 +1115,10 @@ void x_dateLastDayOM( X_CALL_CTX *ctx );
 void x_dateMDY( X_CALL_CTX *ctx );
 void x_timeSecToTime( X_CALL_CTX *ctx );
 void x_dateSetCentury( X_CALL_CTX *ctx );
+void x_dateSetDate( X_CALL_CTX *ctx );
+void x_dateSetTime( X_CALL_CTX *ctx );
 void x_dateSToD( X_CALL_CTX *ctx );
+void x_dateWaitPeriod( X_CALL_CTX *ctx );
 void x_dateWeek( X_CALL_CTX *ctx );
 void x_dateWoM( X_CALL_CTX *ctx );
 
@@ -1163,6 +1197,7 @@ void x_textMLCToPos( X_CALL_CTX *ctx );
 void x_textMLPos( X_CALL_CTX *ctx );
 void x_textMPosToLC( X_CALL_CTX *ctx );
 void x_textNumAt( X_CALL_CTX *ctx );
+void x_textOccurs( X_CALL_CTX *ctx );
 void x_textPadLeft( X_CALL_CTX *ctx );
 void x_textRAt( X_CALL_CTX *ctx );
 void x_textReplicate( X_CALL_CTX *ctx );

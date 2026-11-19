@@ -127,6 +127,8 @@ struct X_OPTIONS
    bool assembly = false;
    bool emitLLVM = false;
    bool windowsSubsystem = false;
+   bool sharedLibrary = false;  /* --shared: a DLL module */
+   bool dynamicRuntime = false; /* --dynamic: a program with libxdev.dll */
    bool archiveOutput = false;
    bool printIr = false;
    std::string outputPath;
@@ -144,6 +146,7 @@ struct X_COMPILE
    std::string input;
    std::string object;
    bool libraryModule = false;
+   bool sharedModule = false;
    bool dumpAst = false;
    bool printIr = false;
    bool preprocessOnly = false;
@@ -160,6 +163,8 @@ struct X_LINK
    X_STRINGS libraries;
    X_STRINGS libraryPaths;
    bool windowsSubsystem = false;
+   bool sharedLibrary = false;
+   bool dynamicRuntime = false;
 };
 
 /* One rule of a .rmk file; state: 0 waiting, 1 being built, 2 built */
@@ -202,13 +207,16 @@ static fs::path s_runtimeLibDir( const char *argv0 )
    return fs::path( executable ).parent_path().parent_path() / "lib";
 }
 
-static fs::path s_binaryPath( const std::string &requestedPath )
+/* A path without extension gets .exe, or .dll for a module of --shared */
+static fs::path s_binaryPath( const std::string &requestedPath, bool sharedLibrary )
 {
    fs::path path( requestedPath );
 
 #if X_OS_WINDOWS
    if( !path.has_extension() )
-      path += ".exe";
+      path += IIF( sharedLibrary, ".dll", ".exe" );
+#else
+   UNUSED( sharedLibrary );
 #endif
 
    return path;
@@ -392,7 +400,25 @@ static bool s_writeArchive( const std::string &archivePath, const X_STRINGS &obj
    return true;
 }
 
-/* The .a files of <prefix>/lib/xdev, sorted; a missing folder means none */
+/* An import library of a DLL: name.dll.a */
+static bool s_isImportLibrary( const fs::path &path )
+{
+   return s_hasExtension( path.string(), ".a" ) && s_hasExtension( path.stem().string(), ".dll" );
+}
+
+/* The import library libname.dll.a of make dynamic when it lies next to libname.a, otherwise the library itself */
+static std::string s_importLibrary( const std::string &library )
+{
+   const fs::path imported = fs::path( library ).replace_extension( ".dll.a" );
+   std::error_code code;
+
+   if( fs::is_regular_file( imported, code ) )
+      return imported.string();
+
+   return library;
+}
+
+/* The static .a files of <prefix>/lib/xdev, sorted; a missing folder means none */
 static bool s_readUserLibraries( const char *argv0, X_STRINGS &libraries, std::string &error )
 {
    const fs::path directory = s_userLibDir( argv0 );
@@ -411,8 +437,10 @@ static bool s_readUserLibraries( const char *argv0, X_STRINGS &libraries, std::s
 
    for( fs::directory_iterator entry( directory, code ), end; entry != end && !code; entry.increment( code ) )
    {
-      if( entry->is_regular_file( code ) && !code && s_hasExtension( entry->path().string(), ".a" ) )
-         libraries.push_back( entry->path().string() );
+      const fs::path &path = entry->path();
+
+      if( entry->is_regular_file( code ) && !code && s_hasExtension( path.string(), ".a" ) && !s_isImportLibrary( path ) )
+         libraries.push_back( path.string() );
    }
 
    if( code )
@@ -597,12 +625,13 @@ static int s_installLibrary( const char *argv0, const char *file )
    return 0;
 }
 
-/* xdev uninstall name: name, name.a or libname.a in <prefix>/lib/xdev */
+/* xdev uninstall name: name, name.a or libname.a in <prefix>/lib/xdev, with its import library name.dll.a */
 static int s_uninstallLibrary( const char *argv0, const char *library )
 {
    const fs::path directory = s_userLibDir( argv0 );
    fs::path name = library;
    fs::path target;
+   fs::path imported;
    std::error_code code;
 
    if( name.empty() || name.has_parent_path() || name.has_root_path() )
@@ -639,6 +668,16 @@ static int s_uninstallLibrary( const char *argv0, const char *library )
    }
 
    std::cout << "Odinstalowano '" << target.string() << "'.\n";
+
+   /* The import library of make dynamic goes with the library */
+   imported = fs::path( target ).replace_extension( ".dll.a" );
+   if( fs::remove( imported, code ) )
+      std::cout << "Odinstalowano '" << imported.string() << "'.\n";
+   else if( code )
+   {
+      std::cerr << "nie mozna usunac biblioteki importu: " << code.message() << "\n";
+      return 2;
+   }
 
    return 0;
 }
@@ -789,14 +828,17 @@ static bool s_builtinsLibrary( const fs::path &compilerDir, std::string &builtin
    return false;
 }
 
-/* LLD MinGW with the start files and libraries of the C compiler; the runtime is named twice for the
-   single-pass linker */
+/* LLD MinGW with the start files and libraries of the C compiler. A program gets the UTF-8 manifest; a module
+   of --shared gets the DLL start file, exports only its public functions and writes its import library.
+   --shared and --dynamic link libxdev.dll through libxdev.dll.a instead of libxdev.a */
 static bool s_linkExecutable( const X_LINK &link, X_TEMP_FILES &temporary, std::string &error )
 {
    const fs::path manifestPath = temporary.directory / "utf8.manifest";
    const std::string manifestInput = "--Xlink=/manifestinput:" + manifestPath.string();
    const std::string libDirFlag = "-L" + link.libDir;
-   const std::string runtimeLib = ( fs::path( link.libDir ) / "libxdev.a" ).string();
+   const char *runtimeName = IIF( link.dynamicRuntime, "libxdev.dll.a", "libxdev.a" );
+   const std::string runtimeLib = ( fs::path( link.libDir ) / runtimeName ).string();
+   const std::string importLib = link.binary + ".a";
    fs::path compilerDir;
    std::string crt2;
    std::string crtBegin;
@@ -805,19 +847,21 @@ static bool s_linkExecutable( const X_LINK &link, X_TEMP_FILES &temporary, std::
    std::string compilerLibFlag;
    X_STRINGS searchPaths;
    std::vector<const char *> args;
+   std::error_code code;
+
+   if( link.dynamicRuntime && !fs::is_regular_file( runtimeLib, code ) )
+   {
+      error = "brak " + runtimeLib + "; zbuduj xDev przez make dynamic";
+      return false;
+   }
 
    if( !s_compilerDir( compilerDir, error ) || !s_builtinsLibrary( compilerDir, builtins, error ) )
       return false;
 
-   crt2 = ( compilerDir / "lib" / "crt2.o" ).string();
+   crt2 = ( compilerDir / "lib" / IIF( link.sharedLibrary, "dllcrt2.o", "crt2.o" ) ).string();
    crtBegin = ( compilerDir / "lib" / "crtbegin.o" ).string();
    crtEnd = ( compilerDir / "lib" / "crtend.o" ).string();
    compilerLibFlag = "-L" + ( compilerDir / "lib" ).string();
-
-   temporary.files.push_back( manifestPath );
-
-   if( !s_writeManifest( manifestPath, error ) )
-      return false;
 
    for( const std::string &path : link.libraryPaths )
       searchPaths.push_back( "-L" + path );
@@ -825,10 +869,26 @@ static bool s_linkExecutable( const X_LINK &link, X_TEMP_FILES &temporary, std::
    searchPaths.push_back( "-L." );
 
    args = { "ld.lld", "-m", "i386pep", "-Bdynamic", "-o", link.binary.c_str(), crt2.c_str(), crtBegin.c_str() };
-   args.push_back( "--Xlink=/manifest:embed" );
-   args.push_back( manifestInput.c_str() );
-   args.push_back( "--subsystem" );
-   args.push_back( IIF( link.windowsSubsystem, "windows", "console" ) );
+
+   if( link.sharedLibrary )
+   {
+      args.push_back( "--shared" );
+      args.push_back( "--exclude-all-symbols" );
+      args.push_back( "--out-implib" );
+      args.push_back( importLib.c_str() );
+   }
+   else
+   {
+      temporary.files.push_back( manifestPath );
+
+      if( !s_writeManifest( manifestPath, error ) )
+         return false;
+
+      args.push_back( "--Xlink=/manifest:embed" );
+      args.push_back( manifestInput.c_str() );
+      args.push_back( "--subsystem" );
+      args.push_back( IIF( link.windowsSubsystem, "windows", "console" ) );
+   }
 
    for( const std::string &path : searchPaths )
       args.push_back( path.c_str() );
@@ -1191,7 +1251,7 @@ static bool s_generate( const X_COMPILE &job, const X_PROGRAM &program, const X_
 {
    X_LLVM backend;
 
-   if( !backend.generate( program, error, job.libraryModule, location ) )
+   if( !backend.generate( program, error, job.libraryModule, location, job.sharedModule ) )
       return false;
 
    if( job.printIr )
@@ -1279,6 +1339,7 @@ static X_COMPILE s_moduleJob( const std::string &input, const std::string &objec
 static const char s_helpText[] =
    "\nSkladnia: xdev [opcje] plik.prg [modul.prg | plik.o | biblioteka.a ...]\n"
    "          xdev [opcje] (plik.prg | plik.o) [...] -o biblioteka.a\n"
+   "          xdev --shared [opcje] modul.prg [inny.prg ...] [-o modul.dll]\n"
    "          xdev -each [opcje] *.prg\n"
    "          xdev plik.rmk\n"
    "          xdev install <biblioteka.a>\n"
@@ -1299,8 +1360,10 @@ static const char s_helpText[] =
    "  -L <katalog>         Dodaj katalog wyszukiwania bibliotek\n"
    "  -l <nazwa>           Dolacz biblioteke o podanej nazwie\n"
    "  --windows            Utworz program Windows GUI bez konsoli\n"
+   "  --shared             Utworz modul DLL bez Main; obok powstaje biblioteka importu modul.dll.a\n"
+   "  --dynamic            Linkuj program ze wspolnym runtime libxdev.dll (xDev zbudowany przez make dynamic)\n"
    "  --                   Zakoncz przetwarzanie opcji\n"
-   "\nDomyslny wynik: plik.exe na Windows, plik na innych systemach; plik.o z -c.\n"
+   "\nDomyslny wynik: plik.exe na Windows, plik na innych systemach; plik.o z -c; plik.dll z --shared.\n"
    "Program: pierwszy plik.prg zawiera Main i wyznacza nazwe wyniku; pozostale PRG sa modulami.\n"
    "Plik .rmk: wiersze \"cel: pliki\"; cel jest budowany, gdy go brak lub jest starszy od pliku.\n"
    "Biblioteka statyczna: xdev jeden.prg [modul.prg plik.o ...] -o biblioteka.a.\n"
@@ -1750,6 +1813,10 @@ static bool s_readFlag( const std::string &arg, X_OPTIONS &options )
       options.emitLLVM = true;
    else if( arg == "--windows" )
       options.windowsSubsystem = true;
+   else if( arg == "--shared" )
+      options.sharedLibrary = true;
+   else if( arg == "--dynamic" )
+      options.dynamicRuntime = true;
    else
       return false;
 
@@ -1945,20 +2012,33 @@ static bool s_checkArchive( const X_OPTIONS &options, int modes )
 static bool s_checkOptions( const X_OPTIONS &options )
 {
    const bool media = !options.images.empty() || !options.icons.empty();
+   const bool runtimeDll = options.sharedLibrary || options.dynamicRuntime;
    const int modes = s_modes( options );
 
 #if !X_OS_WINDOWS
    if( options.windowsSubsystem )
       return s_reject( "--windows jest dostepne tylko dla platformy Windows" );
+
+   if( runtimeDll )
+      return s_reject( "--shared i --dynamic sa na razie dostepne tylko dla platformy Windows" );
 #endif
 
    if( options.windowsSubsystem && ( options.archiveOutput || options.assembly || s_noProgram( options ) ) )
       return s_reject( "--windows mozna uzyc tylko przy linkowaniu programu" );
 
+   if( runtimeDll && ( options.archiveOutput || options.assembly || s_noProgram( options ) ) )
+      return s_reject( "--shared i --dynamic mozna uzyc tylko przy linkowaniu" );
+
+   if( options.sharedLibrary && options.dynamicRuntime )
+      return s_reject( "--dynamic dotyczy programu; modul --shared zawsze uzywa libxdev.dll" );
+
+   if( options.sharedLibrary && options.windowsSubsystem )
+      return s_reject( "--windows dotyczy programu, nie modulu --shared" );
+
    if( options.icons.size() > 1 )
       return s_reject( "program ma jedna ikone .ico" );
 
-   if( media && ( options.archiveOutput || s_noProgram( options ) ) )
+   if( media && ( options.archiveOutput || options.sharedLibrary || s_noProgram( options ) ) )
       return s_reject( "obrazki .png, .bmp i ikone .ico wklada sie tylko do programu" );
 
    if( options.assembly != options.emitLLVM )
@@ -1997,6 +2077,8 @@ static void s_outputPaths( X_OPTIONS &options )
       options.ppoPath = IIF( options.outputPath == "-", std::string(), options.outputPath );
    else if( options.emitLLVM )
       options.irPath = s_defaultOutput( options, ".ll" );
+   else if( options.sharedLibrary )
+      options.binPath = s_defaultOutput( options, ".dll" );
    else if( !options.archiveOutput && !options.syntaxOnly && !options.dumpAst )
       options.binPath = s_defaultOutput( options, IIF( X_OS_WINDOWS, ".exe", "" ) );
 
@@ -2006,7 +2088,7 @@ static void s_outputPaths( X_OPTIONS &options )
       options.irPath.clear();
 
    if( !options.binPath.empty() )
-      options.binary = s_binaryPath( options.binPath );
+      options.binary = s_binaryPath( options.binPath, options.sharedLibrary );
 
    if( options.archiveOutput )
       options.archive = options.outputPath;
@@ -2260,6 +2342,7 @@ static void s_importSearch( const char *argv0, const X_OPTIONS &options, X_STRIN
 /* link.libraries holds the modules of the program; resources, libraries and DLL imports are added */
 static int s_linkProgram( const char *argv0, const X_OPTIONS &options, X_LINK &link, X_TEMP_FILES &temporary )
 {
+   const char *action = IIF( options.sharedLibrary, "Tworzenie modulu DLL '", "Tworzenie programu '" );
    X_STRINGS importInputs = { link.object };
    X_STRINGS importSearch = options.libraryPaths;
    X_STRINGS imports;
@@ -2267,12 +2350,14 @@ static int s_linkProgram( const char *argv0, const X_OPTIONS &options, X_LINK &l
    std::string error;
    bool imported;
 
-   std::cerr << "Tworzenie programu '" << options.binary.string() << "'... " << std::flush;
+   std::cerr << action << options.binary.string() << "'... " << std::flush;
 
    link.libDir = s_runtimeLibDir( argv0 ).string();
    link.binary = options.binary.string();
    link.libraryPaths = options.libraryPaths;
    link.windowsSubsystem = options.windowsSubsystem;
+   link.sharedLibrary = options.sharedLibrary;
+   link.dynamicRuntime = options.dynamicRuntime || options.sharedLibrary;
    importInputs.insert( importInputs.end(), link.libraries.begin(), link.libraries.end() );
 
    if( !s_addResources( options, link, temporary, error ) )
@@ -2286,10 +2371,11 @@ static int s_linkProgram( const char *argv0, const X_OPTIONS &options, X_LINK &l
    s_importSearch( argv0, options, importSearch );
    importInputs.push_back( ( s_runtimeLibDir( argv0 ) / "libxdev.a" ).string() );
 
+   /* --shared and --dynamic link a library built also as a DLL through its import library */
    for( const std::string &library : userLibraries )
    {
       importInputs.push_back( library );
-      link.libraries.push_back( library );
+      link.libraries.push_back( IIF( link.dynamicRuntime, s_importLibrary( library ), library ) );
    }
 
    s_addLibraryInputs( options.libraries, importSearch, importInputs );
@@ -2336,11 +2422,14 @@ static int s_buildProgram( const char *argv0, X_OPTIONS &options, X_TEMP_FILES &
    for( size_t i = 1; i < options.inputs.size(); ++i )
    {
       std::string module;
+      X_COMPILE moduleJob;
 
       std::cerr << "Kompilowanie '" << options.inputs[i] << "'...\n";
       module = temporary.object( i ).string();
+      moduleJob = s_moduleJob( options.inputs[i], module );
+      moduleJob.sharedModule = options.sharedLibrary;
 
-      if( !s_compileSource( s_moduleJob( options.inputs[i], module ), options, error ) )
+      if( !s_compileSource( moduleJob, options, error ) )
       {
          std::cerr << error << "\nKompilacja nie powiodla sie.\n";
          return 1;
@@ -2354,7 +2443,8 @@ static int s_buildProgram( const char *argv0, X_OPTIONS &options, X_TEMP_FILES &
 
    job.input = options.inputs[0];
    job.object = IIF( options.binPath.empty(), options.objPath, temporary.object( 0 ).string() );
-   job.libraryModule = !options.objPath.empty();
+   job.libraryModule = !options.objPath.empty() || options.sharedLibrary;
+   job.sharedModule = options.sharedLibrary;
    job.dumpAst = options.dumpAst;
    job.printIr = options.printIr;
    job.irPath = options.irPath;

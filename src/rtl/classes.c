@@ -1882,6 +1882,32 @@ int x_clsDiscard( X_CLASS_HANDLE classHandle )
    return 1;
 }
 
+/* 1 when a method of a class has its code in [start, start + size): a DLL module that defined the class */
+int x_clsUsesCode( const void *start, size_t size )
+{
+   const uintptr_t first = ( uintptr_t )start;
+   size_t i;
+   size_t m;
+
+   for( i = 0; i < s_classCount; ++i )
+   {
+      const X_CLASS *classInfo = s_classes[i];
+
+      if( classInfo == NULL )
+         continue;
+
+      for( m = 0; m < classInfo->methodCount; ++m )
+      {
+         const uintptr_t code = ( uintptr_t )classInfo->methods[m].function;
+
+         if( code >= first && code - first < size )
+            return 1;
+      }
+   }
+
+   return 0;
+}
+
 /* Finish a class: lineage, class data, method table and operators; a class that fails is discarded */
 int x_clsAssociate( X_CLASS_HANDLE classHandle )
 {

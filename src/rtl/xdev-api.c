@@ -7,8 +7,10 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
-/* The functions of the API are weak, so a library can replace them */
+/* The functions of the API are weak, so a library can replace them; a DLL cannot replace them, so they stay strong there */
+#ifndef X_BUILDING_DLL
 #define X_RTL_DEFAULT_API
+#endif
 
 #include "classes.h"
 #include "gtinfo.h"
@@ -909,7 +911,7 @@ X_FUNC( BREAK )
 // BuildDate( ) --> cDateTime
 X_FUNC( BUILDDATE )
 {
-   x_errorRaiseNamed( ctx->result, 1900, "BUILDDATE" );
+   x_sysBuildDate( ctx );
 }
 
 // Retrieve build information of the xDev compiler
@@ -1326,7 +1328,15 @@ X_FUNC( CLEAREOL )
 // ClearSlow( nDelay, [nTop], [nLeft], [nBottom], [nRight], [xChar] ) --> cNull
 X_FUNC( CLEARSLOW )
 {
-   x_errorRaiseNamed( ctx->result, 1900, "CLEARSLOW" );
+   X_GTCHECK( ctx, "CLEARSLOW" );
+   X_ARGCHECK( ctx, X_ISNUM( ctx, 1 ), "CLEARSLOW" );
+   X_ARGCHECK_OPT( ctx, 2, X_ISNIL( ctx, 2 ) || X_ISNUM( ctx, 2 ), "CLEARSLOW" );
+   X_ARGCHECK_OPT( ctx, 3, X_ISNIL( ctx, 3 ) || X_ISNUM( ctx, 3 ), "CLEARSLOW" );
+   X_ARGCHECK_OPT( ctx, 4, X_ISNIL( ctx, 4 ) || X_ISNUM( ctx, 4 ), "CLEARSLOW" );
+   X_ARGCHECK_OPT( ctx, 5, X_ISNIL( ctx, 5 ) || X_ISNUM( ctx, 5 ), "CLEARSLOW" );
+   X_ARGCHECK_OPT( ctx, 6, X_ISNIL( ctx, 6 ) || X_ISNUM( ctx, 6 ) || X_ISCHAR( ctx, 6 ), "CLEARSLOW" );
+
+   x_screenClearSlow( ctx );
 }
 
 // Clear all or part of the screen
@@ -1365,7 +1375,11 @@ X_FUNC( CLOSEPROCESS )
 // ClrArea( nTop, nLeft, nBottom, nRight, nColorAttr ) --> NIL
 X_FUNC( CLRAREA )
 {
-   x_errorRaiseNamed( ctx->result, 1900, "CLRAREA" );
+   X_GTCHECK( ctx, "CLRAREA" );
+   X_ARGCHECK( ctx, X_ISNUM( ctx, 1 ) && X_ISNUM( ctx, 2 ) && X_ISNUM( ctx, 3 ) && X_ISNUM( ctx, 4 ), "CLRAREA" );
+   X_ARGCHECK( ctx, X_ISNUM( ctx, 5 ) || X_ISCHAR( ctx, 5 ), "CLRAREA" );
+
+   x_screenClrArea( ctx );
 }
 
 // Clear the screen and move the cursor to the top left corner
@@ -1394,7 +1408,7 @@ X_FUNC( CLWIN )
 // CmdArgArgV( ) --> cExeFile
 X_FUNC( CMDARGARGV )
 {
-   x_errorRaiseNamed( ctx->result, 1900, "CMDARGARGV" );
+   x_commandArgValue( ctx, 0 );
 }
 
 // Convert a date to a character month name
@@ -1429,18 +1443,24 @@ X_FUNC( COL )
    x_retni( ctx, col );
 }
 
-// Extract a color value from a color string
+// Extract a color value from a color string; nColorIndex 0 is the first value
 // ColorIndex( cColorString, nColorIndex ) --> cColorValue
 X_FUNC( COLORINDEX )
 {
-   x_errorRaiseNamed( ctx->result, 1900, "COLORINDEX" );
+   X_ARGCHECK( ctx, X_ISCHAR( ctx, 1 ) && X_ISNUM( ctx, 2 ), "COLORINDEX" );
+
+   x_screenColorIndex( ctx );
 }
 
 // Replace color attributes on the screen
 // ColorRepl( [xNewColor], [xOldColor] ) --> cNull
 X_FUNC( COLORREPL )
 {
-   x_errorRaiseNamed( ctx->result, 1900, "COLORREPL" );
+   X_GTCHECK( ctx, "COLORREPL" );
+   X_ARGCHECK_OPT( ctx, 1, X_ISNIL( ctx, 1 ) || X_ISNUM( ctx, 1 ) || X_ISCHAR( ctx, 1 ), "COLORREPL" );
+   X_ARGCHECK_OPT( ctx, 2, X_ISNIL( ctx, 2 ) || X_ISNUM( ctx, 2 ) || X_ISCHAR( ctx, 2 ), "COLORREPL" );
+
+   x_screenColorRepl( ctx );
 }
 
 // Activate attribute in current color settings
@@ -1475,11 +1495,11 @@ X_FUNC( COLORWIN )
    x_screenColorWin( ctx );
 }
 
-// Retrieve the version of the C compiler shipped with xDev
+// Retrieve the version of the C compiler that built the xDev runtime
 // Compiler( ) --> cCompilerVersion
 X_FUNC( COMPILER )
 {
-   x_errorRaiseNamed( ctx->result, 1900, "COMPILER" );
+   x_sysVersionOf( ctx, X_VERSION_COMPILER );
 }
 
 // Create the complement of a value of type C, D, L, M or N
@@ -1629,14 +1649,19 @@ X_FUNC( CSETATMUPA )
 // CSetCent( [lNewMode] ) --> lOldMode
 X_FUNC( CSETCENT )
 {
-   x_errorRaiseNamed( ctx->result, 1900, "CSETCENT" );
+   X_ARGCHECK_OPT( ctx, 1, X_ISNIL( ctx, 1 ) || X_ISLOG( ctx, 1 ), "CSETCENT" );
+
+   x_retl( ctx, x_setCentury( IIF( X_ISLOG( ctx, 1 ), x_parl( ctx, 1 ), -1 ) ) );
 }
 
 // Query or change the SET CURSOR setting
 // CSetCurs( [lNewMode] ) --> lOldMode
 X_FUNC( CSETCURS )
 {
-   x_errorRaiseNamed( ctx->result, 1900, "CSETCURS" );
+   X_GTCHECK( ctx, "CSETCURS" );
+   X_ARGCHECK_OPT( ctx, 1, X_ISNIL( ctx, 1 ) || X_ISLOG( ctx, 1 ), "CSETCURS" );
+
+   x_screenCSetCurs( ctx );
 }
 
 // Retrieve the code block associated with a key
@@ -1877,7 +1902,9 @@ X_FUNC( DECRYPT )
 // Default( @varName, xDefaultValue ) --> NIL
 X_FUNC( DEFAULT )
 {
-   x_errorRaiseNamed( ctx->result, 1900, "DEFAULT" );
+   X_ARGCHECK( ctx, x_pcount( ctx ) >= 2, "DEFAULT" );
+
+   x_sysDefault( ctx );
 }
 
 // Return a value, or the default when the value is NIL
@@ -1891,7 +1918,7 @@ X_FUNC( DEFAULTVALUE )
 // DefPath( ) --> cDefaultPath
 X_FUNC( DEFPATH )
 {
-   x_errorRaiseNamed( ctx->result, 1900, "DEFPATH" );
+   x_fsDefPathCall( ctx );
 }
 
 // Delete a file with error handling
@@ -4700,7 +4727,9 @@ X_FUNC( INVERTWIN )
 // IsAffirm( cChar ) --> lIsYes
 X_FUNC( ISAFFIRM )
 {
-   x_errorRaiseNamed( ctx->result, 1900, "ISAFFIRM" );
+   X_ARGCHECK( ctx, X_ISCHAR( ctx, 1 ), "ISAFFIRM" );
+
+   x_sysNationAnswer( ctx, 0 );
 }
 
 // Check if the first character of a string is alpha-numeric
@@ -4825,21 +4854,27 @@ X_FUNC( ISDIGIT )
 // IsDir( cDirSpec ) --> lIsDirectory
 X_FUNC( ISDIR )
 {
-   x_errorRaiseNamed( ctx->result, 1900, "ISDIR" );
+   X_ARGCHECK( ctx, X_ISCHAR( ctx, 1 ), "ISDIR" );
+
+   x_fsIsDirectoryCall( ctx );
 }
 
 // Check if a character string contains the name of an existing directory
 // IsDirectory( cDirName ) --> lIsDirectory
 X_FUNC( ISDIRECTORY )
 {
-   x_errorRaiseNamed( ctx->result, 1900, "ISDIRECTORY" );
+   X_ARGCHECK( ctx, X_ISCHAR( ctx, 1 ), "ISDIRECTORY" );
+
+   x_fsIsDirectoryCall( ctx );
 }
 
-// (Windows only) Verify if a drive is ready
-// IsDisk( cDrive ) --> lDriveIsReady
+// Check whether a drive letter is a drive of the system; .F. on Linux, which has no drives
+// IsDisk( cDrive ) --> lDriveExists
 X_FUNC( ISDISK )
 {
-   x_errorRaiseNamed( ctx->result, 1900, "ISDISK" );
+   X_ARGCHECK( ctx, X_ISCHAR( ctx, 1 ), "ISDISK" );
+
+   x_fsIsDiskCall( ctx );
 }
 
 // Check if the first character of a string is a 7-bit graphical ASCII character
@@ -4908,7 +4943,9 @@ X_FUNC( ISMEMO )
 // IsNegative( cChar ) --> lIsNo
 X_FUNC( ISNEGATIVE )
 {
-   x_errorRaiseNamed( ctx->result, 1900, "ISNEGATIVE" );
+   X_ARGCHECK( ctx, X_ISCHAR( ctx, 1 ), "ISNEGATIVE" );
+
+   x_sysNationAnswer( ctx, 1 );
 }
 
 // Test if the value returned by an expression is NIL
@@ -5090,11 +5127,14 @@ X_FUNC( KEYMOD )
    x_retni( ctx, IIF( X_INKEY_ISEXT( key ) && !X_INKEY_ISMOUSEPOS( key ), X_INKEY_FLAGS( key ), 0 ) );
 }
 
-// Put an inkey code into the keyboard buffer
-// KeyPut( nInkeyCode ) --> NIL
+// Put key codes or the characters of a string at the end of the keyboard buffer
+// KeyPut( nInkeyCode | cText | aKeys ) --> NIL
 X_FUNC( KEYPUT )
 {
-   x_errorRaiseNamed( ctx->result, 1900, "KEYPUT" );
+   X_GTCHECK( ctx, "KEYPUT" );
+   X_ARGCHECK( ctx, X_ISNUM( ctx, 1 ) || X_ISCHAR( ctx, 1 ) || X_ISARRAY( ctx, 1 ), "KEYPUT" );
+
+   x_screenKeyPut( ctx );
 }
 
 // Start a timer to write a key code into the keyboard buffer
@@ -5635,6 +5675,34 @@ X_FUNC( MOD )
    x_mathMod( ctx );
 }
 
+// Call a public function of a module loaded by ModuleLoad()
+// ModuleCall( nHandle, cFunction, [xArg1, ...] ) --> xResult
+X_FUNC( MODULECALL )
+{
+   X_ARGCHECK( ctx, X_ISNUM( ctx, 1 ), "MODULECALL" );
+   X_ARGCHECK( ctx, X_ISCHAR( ctx, 2 ), "MODULECALL" );
+
+   x_moduleCall( ctx );
+}
+
+// Load a DLL module built by xdev --shared and run its INIT procedures
+// ModuleLoad( cFile ) --> nHandle
+X_FUNC( MODULELOAD )
+{
+   X_ARGCHECK( ctx, X_ISCHAR( ctx, 1 ), "MODULELOAD" );
+
+   x_moduleLoad( ctx );
+}
+
+// Run the EXIT procedures of a module loaded by ModuleLoad() and free it
+// ModuleUnload( nHandle ) --> lUnloaded
+X_FUNC( MODULEUNLOAD )
+{
+   X_ARGCHECK( ctx, X_ISNUM( ctx, 1 ), "MODULEUNLOAD" );
+
+   x_moduleUnload( ctx );
+}
+
 // Convert a date value to the number of the month
 // Month( dDate ) --> nMonth
 X_FUNC( MONTH )
@@ -5797,11 +5865,11 @@ X_FUNC( MUTEXUNLOCK )
    x_errorRaiseNamed( ctx->result, 1900, "MUTEXUNLOCK" );
 }
 
-// Return application specific messages
+// Return a message of the national language by its number from 1 to 13
 // NationMsg( nMessageID ) --> cMessage
 X_FUNC( NATIONMSG )
 {
-   x_errorRaiseNamed( ctx->result, 1900, "NATIONMSG" );
+   x_sysNationMsg( ctx );
 }
 
 // Return the current workstation identification
@@ -5895,7 +5963,7 @@ X_FUNC( NTOCOLOR )
 // Nul( [xValue] ) --> cNullString
 X_FUNC( NUL )
 {
-   x_errorRaiseNamed( ctx->result, 1900, "NUL" );
+   x_retc( ctx, "" );
 }
 
 // Join numbers with a bitwise AND; -1 for an invalid argument
@@ -5919,7 +5987,9 @@ X_FUNC( NUMAT )
 // NumButtons( ) --> nButtonCount
 X_FUNC( NUMBUTTONS )
 {
-   x_errorRaiseNamed( ctx->result, 1900, "NUMBUTTONS" );
+   X_GTCHECK( ctx, "NUMBUTTONS" );
+
+   x_retni( ctx, x_mouseCountButton() );
 }
 
 // Install and/or increments an internal counter value
@@ -6044,11 +6114,13 @@ X_FUNC( OBJMSGPTR )
    x_errorRaiseNamed( ctx->result, 1900, "OBJMSGPTR" );
 }
 
-// Count the occurrance of a substring in a character string
+// Count the occurrences of a substring in a character string, also those that overlap
 // Occurs( cSubStr, cString ) --> nCount
 X_FUNC( OCCURS )
 {
-   x_errorRaiseNamed( ctx->result, 1900, "OCCURS" );
+   X_ARGCHECK( ctx, X_ISCHAR( ctx, 1 ) && X_ISCHAR( ctx, 2 ), "OCCURS" );
+
+   x_textOccurs( ctx );
 }
 
 // (Windows only) Return the last OLE error code as character string
@@ -6111,7 +6183,7 @@ X_FUNC( OSFILEMASK )
 // OsNewLine( ) --> cEndOfLine
 X_FUNC( OSNEWLINE )
 {
-   x_errorRaiseNamed( ctx->result, 1900, "OSNEWLINE" );
+   x_retc( ctx, x_eol() );
 }
 
 // Return the operating specific characters for paths
@@ -6783,7 +6855,10 @@ X_FUNC( RESETWITH )
 // RestCursor( nSaved ) --> cNull
 X_FUNC( RESTCURSOR )
 {
-   x_errorRaiseNamed( ctx->result, 1900, "RESTCURSOR" );
+   X_GTCHECK( ctx, "RESTCURSOR" );
+   X_ARGCHECK( ctx, X_ISNUM( ctx, 1 ), "RESTCURSOR" );
+
+   x_screenRestCursor( ctx );
 }
 
 // Convert binary information back to a code block
@@ -6811,7 +6886,9 @@ X_FUNC( RESTSCREEN )
 // RestSetKey( aSavedSetKey ) --> lRestored
 X_FUNC( RESTSETKEY )
 {
-   x_errorRaiseNamed( ctx->result, 1900, "RESTSETKEY" );
+   X_ARGCHECK( ctx, X_ISARRAY( ctx, 1 ), "RESTSETKEY" );
+
+   x_screenRestSetKey( ctx );
 }
 
 // Restore the global environment of the incremental tokenizer
@@ -6906,7 +6983,9 @@ X_FUNC( SAVEBLOCK )
 // SaveCursor( ) --> nSaved
 X_FUNC( SAVECURSOR )
 {
-   x_errorRaiseNamed( ctx->result, 1900, "SAVECURSOR" );
+   X_GTCHECK( ctx, "SAVECURSOR" );
+
+   x_screenSaveCursor( ctx );
 }
 
 // Save a screen region for later display
@@ -6926,7 +7005,7 @@ X_FUNC( SAVESCREEN )
 // SaveSetKey( ) --> aSavedSetKeys
 X_FUNC( SAVESETKEY )
 {
-   x_errorRaiseNamed( ctx->result, 1900, "SAVESETKEY" );
+   x_screenSetKeySave( ctx, 0 );
 }
 
 // Save the global environment of the incremental tokenizer
@@ -6962,28 +7041,52 @@ X_FUNC( SAY )
 // SayDown( cString, [nDelay], [nRow], [nCol] ) --> cNull
 X_FUNC( SAYDOWN )
 {
-   x_errorRaiseNamed( ctx->result, 1900, "SAYDOWN" );
+   X_GTCHECK( ctx, "SAYDOWN" );
+   X_ARGCHECK( ctx, X_ISCHAR( ctx, 1 ), "SAYDOWN" );
+   X_ARGCHECK_OPT( ctx, 2, X_ISNIL( ctx, 2 ) || X_ISNUM( ctx, 2 ), "SAYDOWN" );
+   X_ARGCHECK_OPT( ctx, 3, X_ISNIL( ctx, 3 ) || X_ISNUM( ctx, 3 ), "SAYDOWN" );
+   X_ARGCHECK_OPT( ctx, 4, X_ISNIL( ctx, 4 ) || X_ISNUM( ctx, 4 ), "SAYDOWN" );
+
+   x_screenSayDown( ctx );
 }
 
 // Output a string on the screen using a "move in" effect
 // SayMoveIn( cString [nDelay], [nRow], [nCol], [lRight] ) --> cNull
 X_FUNC( SAYMOVEIN )
 {
-   x_errorRaiseNamed( ctx->result, 1900, "SAYMOVEIN" );
+   X_GTCHECK( ctx, "SAYMOVEIN" );
+   X_ARGCHECK( ctx, X_ISCHAR( ctx, 1 ), "SAYMOVEIN" );
+   X_ARGCHECK_OPT( ctx, 2, X_ISNIL( ctx, 2 ) || X_ISNUM( ctx, 2 ), "SAYMOVEIN" );
+   X_ARGCHECK_OPT( ctx, 3, X_ISNIL( ctx, 3 ) || X_ISNUM( ctx, 3 ), "SAYMOVEIN" );
+   X_ARGCHECK_OPT( ctx, 4, X_ISNIL( ctx, 4 ) || X_ISNUM( ctx, 4 ), "SAYMOVEIN" );
+   X_ARGCHECK_OPT( ctx, 5, X_ISNIL( ctx, 5 ) || X_ISLOG( ctx, 5 ), "SAYMOVEIN" );
+
+   x_screenSayMoveIn( ctx );
 }
 
 // Display a string on screen keeping existing color attributes
 // SayScreen( cString, [nRow], [nCol] ) --> cNull
 X_FUNC( SAYSCREEN )
 {
-   x_errorRaiseNamed( ctx->result, 1900, "SAYSCREEN" );
+   X_GTCHECK( ctx, "SAYSCREEN" );
+   X_ARGCHECK( ctx, X_ISCHAR( ctx, 1 ), "SAYSCREEN" );
+   X_ARGCHECK_OPT( ctx, 2, X_ISNIL( ctx, 2 ) || X_ISNUM( ctx, 2 ), "SAYSCREEN" );
+   X_ARGCHECK_OPT( ctx, 3, X_ISNIL( ctx, 3 ) || X_ISNUM( ctx, 3 ), "SAYSCREEN" );
+
+   x_screenSayScreen( ctx );
 }
 
 // Output a string on the screen using a "spread" effect
 // SaySpread( cString, [nMilliSecondsDelay], [nRow], [nCol] ) --> cNull
 X_FUNC( SAYSPREAD )
 {
-   x_errorRaiseNamed( ctx->result, 1900, "SAYSPREAD" );
+   X_GTCHECK( ctx, "SAYSPREAD" );
+   X_ARGCHECK( ctx, X_ISCHAR( ctx, 1 ), "SAYSPREAD" );
+   X_ARGCHECK_OPT( ctx, 2, X_ISNIL( ctx, 2 ) || X_ISNUM( ctx, 2 ), "SAYSPREAD" );
+   X_ARGCHECK_OPT( ctx, 3, X_ISNIL( ctx, 3 ) || X_ISNUM( ctx, 3 ), "SAYSPREAD" );
+   X_ARGCHECK_OPT( ctx, 4, X_ISNIL( ctx, 4 ) || X_ISNUM( ctx, 4 ), "SAYSPREAD" );
+
+   x_screenSaySpread( ctx );
 }
 
 // Return the numeric color attribute for a specified coordinate on the screen
@@ -7013,7 +7116,15 @@ X_FUNC( SCREENFILE )
 // ScreenMark( cSearch, xColor, lCase, [lAll], [cPre], [cPost] ) --> lFound
 X_FUNC( SCREENMARK )
 {
-   x_errorRaiseNamed( ctx->result, 1900, "SCREENMARK" );
+   X_GTCHECK( ctx, "SCREENMARK" );
+   X_ARGCHECK( ctx, X_ISCHAR( ctx, 1 ), "SCREENMARK" );
+   X_ARGCHECK( ctx, X_ISNUM( ctx, 2 ) || X_ISCHAR( ctx, 2 ), "SCREENMARK" );
+   X_ARGCHECK( ctx, X_ISLOG( ctx, 3 ), "SCREENMARK" );
+   X_ARGCHECK_OPT( ctx, 4, X_ISNIL( ctx, 4 ) || X_ISLOG( ctx, 4 ), "SCREENMARK" );
+   X_ARGCHECK_OPT( ctx, 5, X_ISNIL( ctx, 5 ) || X_ISCHAR( ctx, 5 ), "SCREENMARK" );
+   X_ARGCHECK_OPT( ctx, 6, X_ISNIL( ctx, 6 ) || X_ISCHAR( ctx, 6 ), "SCREENMARK" );
+
+   x_screenScreenMark( ctx );
 }
 
 // Mix a character string with color attributes
@@ -7275,7 +7386,9 @@ X_FUNC( SETCURSOR )
 // SetDate( dDate ) --> lSuccess
 X_FUNC( SETDATE )
 {
-   x_errorRaiseNamed( ctx->result, 1900, "SETDATE" );
+   X_ARGCHECK( ctx, X_ISDATE( ctx, 1 ), "SETDATE" );
+
+   x_dateSetDate( ctx );
 }
 
 // Query or change the behavior with operating system errors
@@ -7318,31 +7431,41 @@ X_FUNC( SETKEY )
 }
 
 // Associate a code block with multiple keys
-// SetKeyArray( aInkey, [bCodeblock] ) --> NIL
+// SetKeyArray( aInkey, bAction, [bCondition] ) --> NIL
 X_FUNC( SETKEYARRAY )
 {
-   x_errorRaiseNamed( ctx->result, 1900, "SETKEYARRAY" );
+   X_ARGCHECK( ctx, X_ISARRAY( ctx, 1 ), "SETKEYARRAY" );
+   X_ARGCHECK( ctx, X_ISBLOCK( ctx, 2 ), "SETKEYARRAY" );
+   X_ARGCHECK_OPT( ctx, 3, X_ISNIL( ctx, 3 ) || X_ISBLOCK( ctx, 3 ), "SETKEYARRAY" );
+
+   x_screenSetKeyArray( ctx );
 }
 
 // Evaluate a code block associated with a key
 // SetKeyCheck( nInkey, [param1], [param2], [param3] ) --> lIsSetkeyBlock
 X_FUNC( SETKEYCHECK )
 {
-   x_errorRaiseNamed( ctx->result, 1900, "SETKEYCHECK" );
+   X_ARGCHECK( ctx, X_ISNUM( ctx, 1 ), "SETKEYCHECK" );
+
+   x_screenSetKeyCheck( ctx );
 }
 
 // Retrieve code blocks associated with a key
 // SetKeyGet( nInkeyCode, [@bCondition] ) --> bCodeblock
 X_FUNC( SETKEYGET )
 {
-   x_errorRaiseNamed( ctx->result, 1900, "SETKEYGET" );
+   X_ARGCHECK( ctx, X_ISNUM( ctx, 1 ), "SETKEYGET" );
+
+   x_screenSetKeyGet( ctx );
 }
 
 // Query or change all SetKey() code blocks
 // SetKeySave( [aNewKeyBlock] ) --> aOldKeyBlock
 X_FUNC( SETKEYSAVE )
 {
-   x_errorRaiseNamed( ctx->result, 1900, "SETKEYSAVE" );
+   X_ARGCHECK_OPT( ctx, 1, X_ISNIL( ctx, 1 ) || X_ISARRAY( ctx, 1 ), "SETKEYSAVE" );
+
+   x_screenSetKeySave( ctx, 1 );
 }
 
 // Set a numeric value as last error code
@@ -7356,7 +7479,10 @@ X_FUNC( SETLASTERROR )
 // SetLastKey( nKey ) --> cNullString
 X_FUNC( SETLASTKEY )
 {
-   x_errorRaiseNamed( ctx->result, 1900, "SETLASTKEY" );
+   X_ARGCHECK( ctx, X_ISNUM( ctx, 1 ), "SETLASTKEY" );
+
+   x_inkeySetLast( x_parni( ctx, 1 ) );
+   x_retc( ctx, "" );
 }
 
 // Change display mode to a specified number of rows and columns
@@ -7415,7 +7541,9 @@ X_FUNC( SETPOS )
 // SetPosBS( ) --> NIL
 X_FUNC( SETPOSBS )
 {
-   x_errorRaiseNamed( ctx->result, 1900, "SETPOSBS" );
+   X_GTCHECK( ctx, "SETPOSBS" );
+
+   x_screenSetPosBS( ctx );
 }
 
 // Set PROW( ) and PCOL( ) values
@@ -7453,7 +7581,9 @@ X_FUNC( SETREGISTRY )
 // SetTime( cTime ) --> lSuccess
 X_FUNC( SETTIME )
 {
-   x_errorRaiseNamed( ctx->result, 1900, "SETTIME" );
+   X_ARGCHECK( ctx, X_ISCHAR( ctx, 1 ), "SETTIME" );
+
+   x_dateSetTime( ctx );
 }
 
 // Change the with object during WITH OBJECT execution
@@ -8519,7 +8649,9 @@ X_FUNC( WAITFORTHREADS )
 // WaitPeriod( [nTime] ) --> lPeriodIsActive
 X_FUNC( WAITPERIOD )
 {
-   x_errorRaiseNamed( ctx->result, 1900, "WAITPERIOD" );
+   X_ARGCHECK_OPT( ctx, 1, X_ISNIL( ctx, 1 ) || X_ISNUM( ctx, 1 ), "WAITPERIOD" );
+
+   x_dateWaitPeriod( ctx );
 }
 
 // Determine the area that can be used for displaying windows

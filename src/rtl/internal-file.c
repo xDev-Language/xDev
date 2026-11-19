@@ -17,6 +17,7 @@
 
 #include "internal.h"
 #include "platform.h"
+#include "xdev/directry.ch"
 #include "xdev/fileio.ch"
 
 #include <ctype.h>
@@ -90,6 +91,10 @@ static int s_textArea;
 /* The comment characters of the INI functions */
 static char s_iniLineComment = ';';
 static char s_iniInlineComment = '#';
+
+/* The files put into the program by xdev, registered before main(); the last entry has no name */
+static const X_RESOURCE s_noResources[] = { { NULL, NULL, 0 } };
+static const X_RESOURCE *s_resources = s_noResources;
 
 /* ---------------------------------------------------------------------------------------------
    File objects of FileOpen()
@@ -1363,15 +1368,18 @@ int64_t x_fsDirSpace( const char *path, int type )
    }
 }
 
-/* Files put into the executable by xdev: every program has the table, the empty one below gives way to the
-   table that xdev links in from the images of the .rmk; the last entry has no name */
-__attribute__( ( weak ) ) const X_RESOURCE x_resources[] = { { NULL, NULL, 0 } };
+/* The table of the images of the program; a global constructor of the program gives it before main() */
+void x_resourcesRegister( const X_RESOURCE *resources )
+{
+   s_resources = resources;
+}
 
+/* A file put into the program, found by its name without extension; NULL when there is none */
 const unsigned char *x_resourceFind( const char *name, size_t *length )
 {
    const X_RESOURCE *resource;
 
-   for( resource = x_resources; resource->name != NULL; ++resource )
+   for( resource = s_resources; resource->name != NULL; ++resource )
    {
       if( x_stricmp( resource->name, name ) == 0 )
       {
@@ -3158,6 +3166,26 @@ void x_fsCwdCall( X_CALL_CTX *ctx )
    x_retclen_buffer( ctx, path, length );
 }
 
+/* DefPath(): the SET DEFAULT directory with a separator at the end; "" without SET DEFAULT */
+void x_fsDefPathCall( X_CALL_CTX *ctx )
+{
+   const char *path = x_setDefault( NULL );
+   size_t length = strlen( path );
+   char *result = ( char * )x_xgrab( length + 2 );
+
+   memcpy( result, path, length );
+   if( length > 0 && strchr( X_OS_PATH_DELIMITERS, path[length - 1] ) == NULL )
+   {
+      if( X_OS_WINDOWS && length == 1 )
+         result[length++] = ':';
+      else
+         result[length++] = X_OS_PATH_SEPARATOR;
+   }
+
+   result[length] = '\0';
+   x_retclen_buffer( ctx, result, length );
+}
+
 /* DeleteFile() */
 void x_fsDeleteFileCall( X_CALL_CTX *ctx )
 {
@@ -3688,6 +3716,35 @@ void x_fsMD5FileCall( X_CALL_CTX *ctx )
    x_xfree( buffer );
    x_md5Final( &md5, hex );
    x_retclen( ctx, hex, 32 );
+}
+
+/* IsDirectory() and IsDir(): .T. when the first entry of a name or a mask is a directory */
+void x_fsIsDirectoryCall( X_CALL_CTX *ctx )
+{
+   X_ITEM files __attribute__( ( cleanup( x_itemClear ) ) ) = X_ITEM_NIL_INIT;
+   const X_ITEM *attr;
+
+   x_fileDirectory( &files, x_parc( ctx, 1 ), "D" );
+   if( x_arrayLen( &files ) == 0 )
+   {
+      x_retl( ctx, 0 );
+      return;
+   }
+
+   attr = x_arrayGetItemPtr( x_arrayGetItemPtr( &files, 1 ), F_ATTR );
+   x_retl( ctx, X_IS_STRING( attr ) && memchr( attr->u.string.data, 'D', attr->u.string.len ) != NULL );
+}
+
+/* IsDisk(): .T. when a drive letter is a drive of the system; Linux has no drives */
+void x_fsIsDiskCall( X_CALL_CTX *ctx )
+{
+#if X_OS_WINDOWS
+   int letter = toupper( ( unsigned char )*x_parc( ctx, 1 ) );
+
+   x_retl( ctx, letter >= 'A' && letter <= 'Z' && ( ( GetLogicalDrives() >> ( letter - 'A' ) ) & 1 ) );
+#else
+   x_retl( ctx, 0 );
+#endif
 }
 
 /* MemoRead() */

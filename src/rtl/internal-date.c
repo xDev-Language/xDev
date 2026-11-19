@@ -26,6 +26,13 @@
 #include <string.h>
 #include <time.h>
 
+#if X_OS_WINDOWS
+#include <windows.h>
+#endif
+
+/* WaitPeriod(): the end of the period, in milliseconds of x_dateMilliSeconds() */
+static int64_t s_waitPeriodEnd;
+
 /* ---------------------------------------------------------------------------------------------
    Date and time helpers of the API
    --------------------------------------------------------------------------------------------- */
@@ -156,6 +163,62 @@ int64_t x_dateMilliSeconds( void )
    seconds = ( int64_t )x_dateEncode( 1970, 1, 1 ) * 86400 + ( int64_t )now.tv_sec;
 
    return seconds * 1000 + now.tv_nsec / 1000000;
+}
+
+/* The system clock set to a date (year 0 keeps it) and to seconds since midnight (-1 keeps the time) */
+static int s_dateSetClock( int year, int month, int day, double seconds )
+{
+#if X_OS_WINDOWS
+   SYSTEMTIME local;
+
+   GetLocalTime( &local );
+   if( year > 0 )
+   {
+      local.wYear = ( WORD )year;
+      local.wMonth = ( WORD )month;
+      local.wDay = ( WORD )day;
+   }
+
+   if( seconds >= 0 )
+   {
+      local.wHour = ( WORD )( seconds / 3600 );
+      local.wMinute = ( WORD )( ( int )seconds / 60 % 60 );
+      local.wSecond = ( WORD )( ( int )seconds % 60 );
+      local.wMilliseconds = ( WORD )( ( seconds - ( int )seconds ) * 1000 );
+   }
+
+   return SetLocalTime( &local ) != 0;
+#else
+   struct timespec now;
+   struct tm local;
+   time_t moment;
+
+   clock_gettime( CLOCK_REALTIME, &now );
+   localtime_r( &now.tv_sec, &local );
+   if( year > 0 )
+   {
+      local.tm_year = year - 1900;
+      local.tm_mon = month - 1;
+      local.tm_mday = day;
+   }
+
+   if( seconds >= 0 )
+   {
+      local.tm_hour = ( int )( seconds / 3600 );
+      local.tm_min = ( int )seconds / 60 % 60;
+      local.tm_sec = ( int )seconds % 60;
+      now.tv_nsec = ( long )( ( seconds - ( int )seconds ) * 1000000000.0 );
+   }
+
+   local.tm_isdst = -1;
+   moment = mktime( &local );
+   if( moment == ( time_t )-1 )
+      return 0;
+
+   now.tv_sec = moment;
+
+   return clock_settime( CLOCK_REALTIME, &now ) == 0;
+#endif
 }
 
 /* ---------------------------------------------------------------------------------------------
@@ -408,6 +471,24 @@ void x_dateSetCentury( X_CALL_CTX *ctx )
    x_retl( ctx, x_setCentury( century ) );
 }
 
+/* SetDate(): the system date from a date from 1970 on; .F. without the right to change the clock */
+void x_dateSetDate( X_CALL_CTX *ctx )
+{
+   long julian = x_pardl( ctx, 1 );
+   int year, month, day;
+
+   x_dateDecode( julian, &year, &month, &day );
+   x_retl( ctx, julian != 0 && year >= 1970 && s_dateSetClock( year, month, day, -1 ) );
+}
+
+/* SetTime(): the system time from "hh", "hh:mm", "hh:mm:ss" or "hh:mm:ss:cc"; .F. for another text */
+void x_dateSetTime( X_CALL_CTX *ctx )
+{
+   double seconds = x_timeToSeconds( x_parc( ctx, 1 ), x_parclen( ctx, 1 ) );
+
+   x_retl( ctx, seconds >= 0 && s_dateSetClock( 0, 0, 0, seconds ) );
+}
+
 /* SToD(): a "yyyymmdd" string as a date; an invalid string gives the empty date */
 void x_dateSToD( X_CALL_CTX *ctx )
 {
@@ -444,6 +525,17 @@ void x_dateSToD( X_CALL_CTX *ctx )
    }
 
    x_retdl( ctx, x_dateEncode( year, month, day ) );
+}
+
+/* WaitPeriod(): nDelay in 1/100 seconds starts a period; .T. while it has not elapsed, also over midnight */
+void x_dateWaitPeriod( X_CALL_CTX *ctx )
+{
+   int64_t now = x_dateMilliSeconds();
+
+   if( X_ISNUM( ctx, 1 ) )
+      s_waitPeriodEnd = now + ( int64_t )( x_parnd( ctx, 1 ) * 10.0 );
+
+   x_retl( ctx, now < s_waitPeriodEnd );
 }
 
 /* Week(): the ISO 8601 week of a date */

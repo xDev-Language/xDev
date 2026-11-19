@@ -18,6 +18,7 @@
 #include "../../include/xdev/fileio.ch"
 #include "../../include/xdev/inkey.ch"
 #include "../../include/xdev/set.ch"
+#include "../../include/xdev/setcurs.ch"
 
 #include <ctype.h>
 #include <limits.h>
@@ -48,9 +49,10 @@ static const struct
 {
    int shift;
    int bit;
-} s_kbdStatBits[] = { { X_GTI_KBD_RSHIFT, 0x01 },   { X_GTI_KBD_LSHIFT, 0x02 },   { X_GTI_KBD_CTRL, 0x04 },
-                      { X_GTI_KBD_ALT, 0x08 },      { X_GTI_KBD_SCROLOCK, 0x10 }, { X_GTI_KBD_NUMLOCK, 0x20 },
-                      { X_GTI_KBD_CAPSLOCK, 0x40 }, { X_GTI_KBD_INSERT, 0x80 } };
+} s_kbdStatBits[] = {
+   { X_GTI_KBD_RSHIFT, 0x01 }, { X_GTI_KBD_LSHIFT, 0x02 }, { X_GTI_KBD_CTRL, 0x04 }, { X_GTI_KBD_ALT, 0x08 },
+   { X_GTI_KBD_SCROLOCK, 0x10 }, { X_GTI_KBD_NUMLOCK, 0x20 }, { X_GTI_KBD_CAPSLOCK, 0x40 }, { X_GTI_KBD_INSERT, 0x80 }
+};
 
 /* ---------------------------------------------------------------------------------------------
    AChoice()
@@ -260,6 +262,221 @@ void x_screenShadow( int top, int left, int bottom, int right, int color )
    }
 
    x_gtFlush();
+}
+
+/* The cells of an area with oldColor, or all of them when oldColor is -1, take newColor */
+static void s_screenRecolor( int top, int left, int bottom, int right, int newColor, int oldColor )
+{
+   int row, col, color;
+   uint8_t attr;
+   uint16_t character;
+
+   for( row = top; row <= bottom; ++row )
+   {
+      for( col = left; col <= right; ++col )
+      {
+         if( x_gtGetCell( row, col, &color, &attr, &character ) && ( oldColor < 0 || color == oldColor ) )
+            x_gtPutCell( row, col, newColor, attr, character );
+      }
+   }
+
+   x_gtFlush();
+}
+
+/* The next UTF-8 character of a string for a screen cell; U+FFFD for an invalid byte or above U+FFFF */
+static uint16_t s_screenCellChar( const char *text, size_t length, size_t *offset )
+{
+   uint32_t code;
+
+   if( !x_utf8Decode( text, length, offset, &code ) || code > 0xFFFF )
+      return 0xFFFD;
+
+   return ( uint16_t )code;
+}
+
+/* A code of x_ucodes() for a screen cell; an invalid byte or a character above U+FFFF becomes U+FFFD */
+static uint16_t s_screenCellCode( uint32_t code )
+{
+   return ( uint16_t )IIF( code > 0xFFFF, 0xFFFD, code );
+}
+
+/* The standard color of SetColor() */
+static int s_screenStdColor( void )
+{
+   unsigned char colors[X_CLRSTR_LEN];
+
+   x_gtGetColorStr( colors );
+
+   return x_gtColorToN( ( const char * )colors );
+}
+
+/* Do the screen characters match the searched codes, with or without the case of letters? */
+static int s_screenMatch( const uint16_t *cells, const uint32_t *search, size_t count, int exact )
+{
+   size_t i;
+
+   for( i = 0; i < count; ++i )
+   {
+      if( exact && cells[i] != search[i] )
+         return 0;
+
+      if( !exact && x_utf8UpperChar( cells[i] ) != x_utf8UpperChar( search[i] ) )
+         return 0;
+   }
+
+   return 1;
+}
+
+/* Is a screen character one of the codes? */
+static int s_screenInSet( uint16_t character, const uint32_t *codes, size_t count )
+{
+   size_t i;
+
+   for( i = 0; i < count; ++i )
+   {
+      if( codes[i] == character )
+         return 1;
+   }
+
+   return 0;
+}
+
+/* A key code or the characters of a string put at the end of the keyboard buffer */
+static void s_screenKeyPutValue( const X_ITEM *value )
+{
+   uint32_t *codes;
+   size_t count, i;
+
+   if( X_IS_NUMERIC( value ) )
+      x_inkeyPut( x_itemGetNI( value ) );
+
+   if( !X_IS_STRING( value ) )
+      return;
+
+   codes = x_ucodes( value->u.string.data, value->u.string.len, &count );
+   for( i = 0; i < count; ++i )
+   {
+      if( codes[i] >= X_UCODE_BYTE )
+         codes[i] = 0xFFFD;
+
+      x_inkeyPut( IIF( codes[i] < 128, ( int )codes[i], ( int )X_INKEY_NEW_UNICODE( codes[i] ) ) );
+   }
+
+   x_xfree( codes );
+}
+
+/* The start of an output: arguments rowArg and rowArg + 1, else the cursor; 0 when outside the screen */
+static int s_screenStart( X_CALL_CTX *ctx, int rowArg, int *row, int *col )
+{
+   unsigned short cursorRow = 0, cursorCol = 0;
+
+   x_gtGetPos( &cursorRow, &cursorCol );
+   *row = ( int )x_parnintdef( ctx, rowArg, cursorRow );
+   *col = ( int )x_parnintdef( ctx, rowArg + 1, cursorCol );
+
+   return *row >= 0 && *col >= 0 && *row <= x_gtMaxRow() && *col <= x_gtMaxCol();
+}
+
+/* The index of a key in the SetKey() list; s_setKeyCount when the key has no action */
+static size_t s_setKeyFind( int key )
+{
+   size_t index;
+
+   for( index = 0; index < s_setKeyCount && s_setKeys[index].key != key; ++index )
+      ;
+
+   return index;
+}
+
+/* A key gets an action and a condition; an action that is not a block releases the key */
+static void s_setKeyPut( int key, const X_ITEM *action, const X_ITEM *condition )
+{
+   X_ITEM nil = X_ITEM_NIL_INIT;
+   size_t index = s_setKeyFind( key );
+
+   if( action == NULL || !X_IS_BLOCK( action ) )
+   {
+      if( index < s_setKeyCount )
+      {
+         x_itemClear( &s_setKeys[index].action );
+         x_itemClear( &s_setKeys[index].condition );
+         s_setKeys[index] = s_setKeys[--s_setKeyCount];
+      }
+
+      return;
+   }
+
+   if( index == s_setKeyCount )
+   {
+      s_setKeys = ( S_SETKEY * )x_xrealloc( s_setKeys, ( s_setKeyCount + 1 ) * sizeof( S_SETKEY ) );
+      s_setKeys[index].key = key;
+      s_setKeys[index].action = nil;
+      s_setKeys[index].condition = nil;
+      ++s_setKeyCount;
+   }
+
+   x_itemCopy( &s_setKeys[index].action, action );
+   if( condition != NULL && X_IS_BLOCK( condition ) )
+      x_itemCopy( &s_setKeys[index].condition, condition );
+   else
+      x_itemClear( &s_setKeys[index].condition );
+}
+
+/* All keys released */
+static void s_setKeyRelease( void )
+{
+   while( s_setKeyCount > 0 )
+   {
+      --s_setKeyCount;
+      x_itemClear( &s_setKeys[s_setKeyCount].action );
+      x_itemClear( &s_setKeys[s_setKeyCount].condition );
+   }
+}
+
+/* The SetKey() list as an array of { nKey, bAction, bCondition | NIL } */
+static void s_setKeyList( X_ITEM *result )
+{
+   size_t i;
+
+   x_arrayNew( result, ( int64_t )s_setKeyCount );
+   for( i = 0; i < s_setKeyCount; ++i )
+   {
+      X_ITEM entry __attribute__( ( cleanup( x_itemClear ) ) ) = X_ITEM_NIL_INIT;
+
+      x_arrayNew( &entry, 3 );
+      x_arraySetNInt( &entry, 1, s_setKeys[i].key );
+      x_arraySet( &entry, 2, &s_setKeys[i].action );
+      x_arraySet( &entry, 3, &s_setKeys[i].condition );
+      x_arraySet( result, i + 1, &entry );
+   }
+}
+
+/* The SetKey() list replaced by an array of s_setKeyList(); 0 and no change when the array has another form */
+static int s_setKeyRestore( const X_ITEM *list )
+{
+   int64_t count = x_arrayLen( list );
+   int64_t i;
+   const X_ITEM *entry;
+   const X_ITEM *condition;
+   int valid;
+
+   for( i = 1; i <= count; ++i )
+   {
+      entry = x_arrayGetItemPtr( list, ( size_t )i );
+      valid = X_IS_ARRAY( entry ) && x_arrayLen( entry ) >= 2;
+      if( !valid || !X_IS_NUMERIC( x_arrayGetItemPtr( entry, 1 ) ) || !X_IS_BLOCK( x_arrayGetItemPtr( entry, 2 ) ) )
+         return 0;
+   }
+
+   s_setKeyRelease();
+   for( i = 1; i <= count; ++i )
+   {
+      entry = x_arrayGetItemPtr( list, ( size_t )i );
+      condition = IIF( x_arrayLen( entry ) >= 3, x_arrayGetItemPtr( entry, 3 ), NULL );
+      s_setKeyPut( x_itemGetNI( x_arrayGetItemPtr( entry, 1 ) ), x_arrayGetItemPtr( entry, 2 ), condition );
+   }
+
+   return 1;
 }
 
 /* ---------------------------------------------------------------------------------------------
@@ -678,6 +895,48 @@ void x_screenClearEol( X_CALL_CTX *ctx )
    x_retc( ctx, "" );
 }
 
+/* ClearSlow(): an area cleared frame by frame to the middle with SetClearA() and SetClearB() */
+void x_screenClearSlow( X_CALL_CTX *ctx )
+{
+   double delay = x_parnd( ctx, 1 ) / 1000.0;
+   int top = ( int )x_parnintdef( ctx, 2, 0 );
+   int left = ( int )x_parnintdef( ctx, 3, 0 );
+   int bottom = ( int )x_parnintdef( ctx, 4, x_gtMaxRow() );
+   int right = ( int )x_parnintdef( ctx, 5, x_gtMaxCol() );
+   int character = x_cellChar( ctx, 6, x_clearChar );
+   int rowSteps, colSteps, steps, step, rowIn, colIn, row, col;
+
+   top = IIF( top < 0, 0, top );
+   left = IIF( left < 0, 0, left );
+   bottom = IIF( bottom > x_gtMaxRow(), x_gtMaxRow(), bottom );
+   right = IIF( right > x_gtMaxCol(), x_gtMaxCol(), right );
+   rowSteps = ( bottom - top + 2 ) / 2;
+   colSteps = ( right - left + 2 ) / 2;
+   steps = IIF( rowSteps > colSteps, rowSteps, colSteps );
+
+   for( step = 0; top <= bottom && left <= right && step < steps; ++step )
+   {
+      rowIn = step * rowSteps / steps;
+      colIn = step * colSteps / steps;
+      for( col = left + colIn; col <= right - colIn; ++col )
+      {
+         x_gtPutCell( top + rowIn, col, x_clearColor, 0, ( uint16_t )character );
+         x_gtPutCell( bottom - rowIn, col, x_clearColor, 0, ( uint16_t )character );
+      }
+
+      for( row = top + rowIn; row <= bottom - rowIn; ++row )
+      {
+         x_gtPutCell( row, left + colIn, x_clearColor, 0, ( uint16_t )character );
+         x_gtPutCell( row, right - colIn, x_clearColor, 0, ( uint16_t )character );
+      }
+
+      x_gtFlush();
+      x_sysSleep( delay );
+   }
+
+   x_retc( ctx, "" );
+}
+
 /* ClearWin(): clear all or part of the screen */
 void x_screenClearWin( X_CALL_CTX *ctx )
 {
@@ -690,6 +949,16 @@ void x_screenClearWin( X_CALL_CTX *ctx )
    x_retc( ctx, "" );
 }
 
+/* ClrArea(): an area of the screen takes one color; the characters stay */
+void x_screenClrArea( X_CALL_CTX *ctx )
+{
+   unsigned short rect[4];
+
+   x_screenRange( ctx, rect, 1, 0 );
+   s_screenRecolor( rect[0], rect[1], rect[2], rect[3], x_colorArg( ctx, 5, x_clearColor ), -1 );
+   x_ret( ctx );
+}
+
 /* Cls(): clear the screen and move the cursor to the top left corner */
 void x_screenCls( X_CALL_CTX *ctx )
 {
@@ -698,28 +967,58 @@ void x_screenCls( X_CALL_CTX *ctx )
    x_ret( ctx );
 }
 
+/* ColorIndex(): the color value at a position from 0 of a color string, without the spaces around it */
+void x_screenColorIndex( X_CALL_CTX *ctx )
+{
+   const char *text = x_parc( ctx, 1 );
+   int64_t index = x_parnint( ctx, 2 );
+   size_t start, length;
+
+   if( index < 0 || !x_colorPair( text, x_parclen( ctx, 1 ), index + 1, &start, &length ) )
+   {
+      x_retc( ctx, "" );
+      return;
+   }
+
+   while( length > 0 && text[start] == ' ' )
+   {
+      ++start;
+      --length;
+   }
+
+   while( length > 0 && text[start + length - 1] == ' ' )
+      --length;
+
+   x_retclen( ctx, text + start, length );
+}
+
+/* ColorRepl(): the cells of the whole screen with xOldAttr, or all of them, take xNewAttr */
+void x_screenColorRepl( X_CALL_CTX *ctx )
+{
+   s_screenRecolor( 0, 0, x_gtMaxRow(), x_gtMaxCol(), x_colorArg( ctx, 1, x_clearColor ), x_colorArg( ctx, 2, -1 ) );
+   x_retc( ctx, "" );
+}
+
 /* ColorWin(): replace a color attribute in a screen area */
 void x_screenColorWin( X_CALL_CTX *ctx )
 {
    unsigned short rect[4];
-   int newColor = x_colorArg( ctx, 5, x_clearColor );
-   int oldColor = x_colorArg( ctx, 6, -1 );
-   int row, col, color;
-   uint8_t attr;
-   uint16_t character;
 
    x_screenRange( ctx, rect, 1, 1 );
-   for( row = rect[0]; row <= rect[2]; ++row )
-   {
-      for( col = rect[1]; col <= rect[3]; ++col )
-      {
-         if( x_gtGetCell( row, col, &color, &attr, &character ) && ( oldColor < 0 || color == oldColor ) )
-            x_gtPutCell( row, col, newColor, attr, character );
-      }
-   }
-
-   x_gtFlush();
+   s_screenRecolor( rect[0], rect[1], rect[2], rect[3], x_colorArg( ctx, 5, x_clearColor ), x_colorArg( ctx, 6, -1 ) );
    x_retc( ctx, "" );
+}
+
+/* CSetCurs(): .T. when the cursor is visible; lNewMode shows or hides it */
+void x_screenCSetCurs( X_CALL_CTX *ctx )
+{
+   unsigned short shape = SC_NONE;
+
+   x_gtGetCursor( &shape );
+   if( X_ISLOG( ctx, 1 ) )
+      x_gtSetCursor( IIF( x_parl( ctx, 1 ), SC_NORMAL, SC_NONE ) );
+
+   x_retl( ctx, shape != SC_NONE );
 }
 
 /* DispBox(): display a box on the screen */
@@ -858,6 +1157,23 @@ void x_screenKbdStat( X_CALL_CTX *ctx )
    x_retni( ctx, status );
 }
 
+/* KeyPut(): a key code, the characters of a string or the values of an array put at the end of the buffer */
+void x_screenKeyPut( X_CALL_CTX *ctx )
+{
+   const X_ITEM *keys = x_paritem( ctx, 1 );
+   int64_t i;
+
+   if( X_IS_ARRAY( keys ) )
+   {
+      for( i = 1; i <= x_arrayLen( keys ); ++i )
+         s_screenKeyPutValue( x_arrayGetItemPtr( keys, ( size_t )i ) );
+   }
+   else
+      s_screenKeyPutValue( keys );
+
+   x_ret( ctx );
+}
+
 /* KSetCaps(), KSetIns(), KSetNum(), KSetScroll(): the old state of one lock key; lNewSwitch sets it */
 void x_screenKSet( X_CALL_CTX *ctx, int flag )
 {
@@ -897,6 +1213,16 @@ void x_screenNToColor( X_CALL_CTX *ctx )
    x_retc( ctx, text );
 }
 
+/* RestCursor(): the cursor row, column and shape from a number of SaveCursor() */
+void x_screenRestCursor( X_CALL_CTX *ctx )
+{
+   int64_t saved = x_parnint( ctx, 1 );
+
+   x_gtSetPos( ( unsigned short )( ( saved >> 16 ) & 0xFFFF ), ( unsigned short )( saved & 0xFFFF ) );
+   x_gtSetCursor( ( unsigned short )( ( saved >> 32 ) & 0xFFFF ) );
+   x_retc( ctx, "" );
+}
+
 /* RestScreen(): display a saved screen region to a specified location */
 void x_screenRestScreen( X_CALL_CTX *ctx )
 {
@@ -909,6 +1235,22 @@ void x_screenRestScreen( X_CALL_CTX *ctx )
    X_ARGCHECK( ctx, x_parclen( ctx, 5 ) >= size, "RESTSCREEN" );
    x_gtRest( rect[0], rect[1], rect[2], rect[3], ( void * )x_parc( ctx, 5 ) );
    x_ret( ctx );
+}
+
+/* RestSetKey(): the SetKey() list from an array of SaveSetKey(); .F. and no change for another form */
+void x_screenRestSetKey( X_CALL_CTX *ctx )
+{
+   x_retl( ctx, s_setKeyRestore( x_paritem( ctx, 1 ) ) );
+}
+
+/* SaveCursor(): the cursor row, column and shape in one number for RestCursor(), 16 bits each */
+void x_screenSaveCursor( X_CALL_CTX *ctx )
+{
+   unsigned short row = 0, col = 0, shape = SC_NONE;
+
+   x_gtGetPos( &row, &col );
+   x_gtGetCursor( &shape );
+   x_retnint( ctx, ( int64_t )col | ( ( int64_t )row << 16 ) | ( ( int64_t )shape << 32 ) );
 }
 
 /* SaveScreen(): save a screen region for later display */
@@ -925,6 +1267,192 @@ void x_screenSaveScreen( X_CALL_CTX *ctx )
    x_gtSave( rect[0], rect[1], rect[2], rect[3], buffer );
    buffer[size] = '\0';
    x_retclen_buffer( ctx, buffer, size );
+}
+
+/* SayDown(): a string written downwards in the color of SetColor() with a delay; the cursor stays */
+void x_screenSayDown( X_CALL_CTX *ctx )
+{
+   const char *text = x_parc( ctx, 1 );
+   size_t length = x_parclen( ctx, 1 ), offset = 0;
+   double delay = IIF( X_ISNUM( ctx, 2 ), x_parnd( ctx, 2 ), 4.0 ) / 1000.0;
+   int color = s_screenStdColor();
+   int row, col;
+
+   if( s_screenStart( ctx, 3, &row, &col ) )
+   {
+      while( offset < length && row <= x_gtMaxRow() )
+      {
+         x_gtPutCell( row++, col, color, 0, s_screenCellChar( text, length, &offset ) );
+         x_gtFlush();
+         x_sysSleep( delay );
+      }
+   }
+
+   x_retc( ctx, "" );
+}
+
+/* SayMoveIn(): a string moved in from the left or from the right with a delay; the cursor ends after it */
+void x_screenSayMoveIn( X_CALL_CTX *ctx )
+{
+   size_t count, shown, i;
+   uint32_t *codes = x_ucodes( x_parc( ctx, 1 ), x_parclen( ctx, 1 ), &count );
+   double delay = IIF( X_ISNUM( ctx, 2 ), x_parnd( ctx, 2 ), 4.0 ) / 1000.0;
+   int fromRight = x_parl( ctx, 5 );
+   int color = s_screenStdColor();
+   int row, col;
+
+   if( s_screenStart( ctx, 3, &row, &col ) )
+   {
+      for( shown = 1; shown <= count; ++shown )
+      {
+         for( i = 0; i < shown; ++i )
+         {
+            if( fromRight )
+               x_gtPutCell( row, col + ( int )( count - shown + i ), color, 0, s_screenCellCode( codes[i] ) );
+            else
+               x_gtPutCell( row, col + ( int )i, color, 0, s_screenCellCode( codes[count - shown + i] ) );
+         }
+
+         x_gtFlush();
+         x_sysSleep( delay );
+      }
+
+      x_gtSetPos( ( unsigned short )row, ( unsigned short )( col + ( int )count ) );
+   }
+
+   x_xfree( codes );
+   x_retc( ctx, "" );
+}
+
+/* SayScreen(): a string written with the screen colors kept, going on in the next row; the cursor stays */
+void x_screenSayScreen( X_CALL_CTX *ctx )
+{
+   const char *text = x_parc( ctx, 1 );
+   size_t length = x_parclen( ctx, 1 ), offset = 0;
+   int row, col, start, color;
+   uint8_t attr;
+   uint16_t character;
+
+   if( s_screenStart( ctx, 2, &row, &start ) )
+   {
+      col = start;
+      while( offset < length && row <= x_gtMaxRow() )
+      {
+         if( x_gtGetCell( row, col, &color, &attr, &character ) )
+            x_gtPutCell( row, col++, color, attr, s_screenCellChar( text, length, &offset ) );
+         else
+         {
+            ++row;
+            col = start;
+         }
+      }
+
+      x_gtFlush();
+   }
+
+   x_retc( ctx, "" );
+}
+
+/* SaySpread(): a string spread from its middle to both sides with a delay; the cursor stays */
+void x_screenSaySpread( X_CALL_CTX *ctx )
+{
+   size_t count, first, last, i;
+   uint32_t *codes = x_ucodes( x_parc( ctx, 1 ), x_parclen( ctx, 1 ), &count );
+   double delay = IIF( X_ISNUM( ctx, 2 ), x_parnd( ctx, 2 ), 4.0 ) / 1000.0;
+   int color = s_screenStdColor();
+   unsigned short cursorRow = 0, cursorCol = 0;
+   int row, center, left;
+
+   x_gtGetPos( &cursorRow, &cursorCol );
+   row = ( int )x_parnintdef( ctx, 3, cursorRow );
+   center = ( int )x_parnintdef( ctx, 4, x_gtMaxCol() / 2 );
+   left = center - ( int )( count / 2 );
+
+   if( count > 0 && row >= 0 && row <= x_gtMaxRow() && center >= 0 && center <= x_gtMaxCol() )
+   {
+      first = ( count - 1 ) / 2;
+      last = count / 2;
+      for( ;; )
+      {
+         for( i = first; i <= last; ++i )
+            x_gtPutCell( row, left + ( int )i, color, 0, s_screenCellCode( codes[i] ) );
+
+         x_gtFlush();
+         x_sysSleep( delay );
+         if( first == 0 )
+            break;
+
+         --first;
+         ++last;
+      }
+   }
+
+   x_xfree( codes );
+   x_retc( ctx, "" );
+}
+
+/* ScreenMark(): the occurrences of a string on the screen, between cPre and cPost, take a color */
+void x_screenScreenMark( X_CALL_CTX *ctx )
+{
+   size_t count, preCount = 0, postCount = 0, total, pos, i;
+   uint32_t *search = x_ucodes( x_parc( ctx, 1 ), x_parclen( ctx, 1 ), &count );
+   uint32_t *pre = NULL;
+   uint32_t *post = NULL;
+   uint16_t *cells;
+   int color = x_colorArg( ctx, 2, x_clearColor );
+   int exact = x_parl( ctx, 3 );
+   int all = x_parl( ctx, 4 );
+   int cols = x_gtMaxCol() + 1;
+   int found = 0, cellColor, row, col;
+   uint8_t attr;
+   uint16_t character;
+
+   if( X_ISCHAR( ctx, 5 ) )
+      pre = x_ucodes( x_parc( ctx, 5 ), x_parclen( ctx, 5 ), &preCount );
+
+   if( X_ISCHAR( ctx, 6 ) )
+      post = x_ucodes( x_parc( ctx, 6 ), x_parclen( ctx, 6 ), &postCount );
+
+   total = ( size_t )( x_gtMaxRow() + 1 ) * ( size_t )cols;
+   cells = ( uint16_t * )x_xgrab( ( total + 1 ) * sizeof( uint16_t ) );
+   for( pos = 0; pos < total; ++pos )
+   {
+      if( !x_gtGetCell( ( int )( pos / ( size_t )cols ), ( int )( pos % ( size_t )cols ), &cellColor, &attr, &cells[pos] ) )
+         cells[pos] = 0;
+   }
+
+   for( pos = 0; count > 0 && pos + count <= total; ++pos )
+   {
+      if( !s_screenMatch( cells + pos, search, count, exact ) )
+         continue;
+
+      if( pre != NULL && pos > 0 && !s_screenInSet( cells[pos - 1], pre, preCount ) )
+         continue;
+
+      if( post != NULL && pos + count < total && !s_screenInSet( cells[pos + count], post, postCount ) )
+         continue;
+
+      for( i = pos; i < pos + count; ++i )
+      {
+         row = ( int )( i / ( size_t )cols );
+         col = ( int )( i % ( size_t )cols );
+         if( x_gtGetCell( row, col, &cellColor, &attr, &character ) )
+            x_gtPutCell( row, col, color, attr, character );
+      }
+
+      found = 1;
+      if( !all )
+         break;
+
+      pos += count - 1;
+   }
+
+   x_gtFlush();
+   x_xfree( cells );
+   x_xfree( search );
+   x_xfree( pre );
+   x_xfree( post );
+   x_retl( ctx, found );
 }
 
 /* Scroll(): scroll a screen region up or down, right or left */
@@ -1002,43 +1530,102 @@ void x_screenSetColorExt( X_CALL_CTX *ctx, uint32_t foreground, uint32_t backgro
 /* SetKey(): the action of a key; with a block the new action and condition, with NIL the key is released */
 void x_screenSetKey( X_CALL_CTX *ctx )
 {
-   size_t index;
+   size_t index = s_setKeyFind( x_parni( ctx, 1 ) );
 
-   for( index = 0; index < s_setKeyCount && s_setKeys[index].key != x_parni( ctx, 1 ); ++index )
-      ;
    if( index < s_setKeyCount )
       x_itemReturn( ctx, &s_setKeys[index].action );
    else
       x_ret( ctx );
 
    if( x_pcount( ctx ) >= 2 )
+      s_setKeyPut( x_parni( ctx, 1 ), x_paritem( ctx, 2 ), x_paritem( ctx, 3 ) );
+}
+
+/* SetKeyArray(): one action and one condition for all keys of an array */
+void x_screenSetKeyArray( X_CALL_CTX *ctx )
+{
+   const X_ITEM *keys = x_paritem( ctx, 1 );
+   int64_t i;
+
+   for( i = 1; i <= x_arrayLen( keys ); ++i )
+      s_setKeyPut( x_itemGetNI( x_arrayGetItemPtr( keys, ( size_t )i ) ), x_paritem( ctx, 2 ), x_paritem( ctx, 3 ) );
+
+   x_ret( ctx );
+}
+
+/* SetKeyCheck(): the action of a key run with the arguments and the key when its condition allows it */
+void x_screenSetKeyCheck( X_CALL_CTX *ctx )
+{
+   X_ITEM action __attribute__( ( cleanup( x_itemClear ) ) ) = X_ITEM_NIL_INIT;
+   X_ITEM condition __attribute__( ( cleanup( x_itemClear ) ) ) = X_ITEM_NIL_INIT;
+   X_ITEM result __attribute__( ( cleanup( x_itemClear ) ) ) = X_ITEM_NIL_INIT;
+   X_ITEM keyItem = X_ITEM_NIL_INIT;
+   X_ARG args[4];
+   int key = x_parni( ctx, 1 );
+   size_t index = s_setKeyFind( key );
+   int count = 0, i;
+
+   if( index == s_setKeyCount && x_inkeyKeyStd( key ) != key )
    {
-      if( X_ISBLOCK( ctx, 2 ) )
-      {
-         if( index == s_setKeyCount )
-         {
-            X_ITEM nil = X_ITEM_NIL_INIT;
+      key = x_inkeyKeyStd( key );
+      index = s_setKeyFind( key );
+   }
 
-            s_setKeys = ( S_SETKEY * )x_xrealloc( s_setKeys, ( s_setKeyCount + 1 ) * sizeof( S_SETKEY ) );
-            s_setKeys[index].key = x_parni( ctx, 1 );
-            s_setKeys[index].action = nil;
-            s_setKeys[index].condition = nil;
-            ++s_setKeyCount;
-         }
+   if( key == 0 || index == s_setKeyCount )
+   {
+      x_retl( ctx, 0 );
+      return;
+   }
 
-         x_itemCopy( &s_setKeys[index].action, x_paritem( ctx, 2 ) );
-         if( X_ISBLOCK( ctx, 3 ) )
-            x_itemCopy( &s_setKeys[index].condition, x_paritem( ctx, 3 ) );
-         else
-            x_itemClear( &s_setKeys[index].condition );
-      }
-      else if( index < s_setKeyCount )
+   /* the blocks are copied: an action may change the SetKey() list */
+   x_itemCopy( &action, &s_setKeys[index].action );
+   x_itemCopy( &condition, &s_setKeys[index].condition );
+   x_itemPutNI( &keyItem, key );
+
+   if( X_IS_BLOCK( &condition ) )
+   {
+      args[0] = ( X_ARG ){ &keyItem, 0 };
+      x_evalBlock( ctx, &result, &condition, 1, args );
+      if( !X_IS_LOGICAL( &result ) || !result.u.logical )
       {
-         x_itemClear( &s_setKeys[index].action );
-         x_itemClear( &s_setKeys[index].condition );
-         s_setKeys[index] = s_setKeys[--s_setKeyCount];
+         x_retl( ctx, 0 );
+         return;
       }
    }
+
+   for( i = 2; i <= x_pcount( ctx ) && count < 3; ++i )
+      args[count++] = ( X_ARG ){ x_paritem( ctx, i ), 0 };
+
+   args[count++] = ( X_ARG ){ &keyItem, 0 };
+   x_itemClear( &result );
+   x_evalBlock( ctx, &result, &action, count, args );
+   x_retl( ctx, 1 );
+}
+
+/* SetKeyGet(): the action of a key; its condition goes into the second argument passed by reference */
+void x_screenSetKeyGet( X_CALL_CTX *ctx )
+{
+   size_t index = s_setKeyFind( x_parni( ctx, 1 ) );
+
+   if( index == s_setKeyCount )
+   {
+      x_ret( ctx );
+      return;
+   }
+
+   x_itemReturn( ctx, &s_setKeys[index].action );
+   x_storitem( ctx, &s_setKeys[index].condition, 2 );
+}
+
+/* SaveSetKey() and SetKeySave(): the SetKey() list; SetKeySave() also replaces it or releases all keys */
+void x_screenSetKeySave( X_CALL_CTX *ctx, int replace )
+{
+   s_setKeyList( ctx->result );
+
+   if( replace && X_ISARRAY( ctx, 1 ) )
+      s_setKeyRestore( x_paritem( ctx, 1 ) );
+   else if( replace && x_pcount( ctx ) >= 1 )
+      s_setKeyRelease();
 }
 
 /* SetMode(): change display mode to a specified number of rows and columns */
@@ -1073,6 +1660,16 @@ void x_screenSetMode( X_CALL_CTX *ctx )
    }
 
    x_retl( ctx, x_gtSetMode( rows, cols ) == 0 );
+}
+
+/* SetPosBS(): the cursor one column to the right, without a check of the screen border */
+void x_screenSetPosBS( X_CALL_CTX *ctx )
+{
+   unsigned short row = 0, col = 0;
+
+   x_gtGetPos( &row, &col );
+   x_gtSetPos( row, ( unsigned short )( col + 1 ) );
+   x_ret( ctx );
 }
 
 /* Wait(): wait for a keypress, target of the WAIT command */

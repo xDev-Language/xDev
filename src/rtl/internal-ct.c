@@ -1173,8 +1173,7 @@ int x_ctSetMove( int mode )
    return previous;
 }
 
-/* WStep(): the step of the interactive moving, at most 6 rows and 20 columns; it may be set only while no
-   window is open */
+/* WStep(): the step of the interactive moving, at most 6 rows and 20 columns, only without open windows */
 int x_ctStep( int rows, int cols )
 {
    if( s_ctScreen || rows < 1 || cols < 1 )
@@ -1194,8 +1193,7 @@ static void s_ctMoveEnd( void )
    s_ctFineCols = 0;
 }
 
-/* Interactive moving: with WSetMove() and Scroll Lock on, an arrow key moves the current window by the step
-   of WStep(); two opposite keys one after the other move that axis by 1. 1 when the key was used */
+/* Interactive moving: an arrow key with WSetMove() and Scroll Lock on moves the window; 1 when it was used */
 int x_ctMoveKey( int key )
 {
    X_ITEM shifts __attribute__( ( cleanup( x_itemClear ) ) ) = X_ITEM_NIL_INIT;

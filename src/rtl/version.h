@@ -37,6 +37,11 @@ enum X_VERSION
 #define X_VER_RELEASE 0
 #define X_VER_URL "https://github.com/xDev-Language/xDev"
 
+/* The version of the bond between the runtime and a DLL module of --shared; every module returns it from
+   x_moduleVersion() and ModuleLoad() rejects a module with another one. It grows when compiled code
+   stops fitting the runtime: X_CALL_CTX, X_ITEM, the module lifecycle or the exceptions */
+#define X_VER_MODULE 1
+
 #define X_VER_TEXT_( n ) #n
 #define X_VER_TEXT( n ) X_VER_TEXT_( n )
 #define X_VER_NUMBER X_VER_TEXT( X_VER_MAJOR ) "." X_VER_TEXT( X_VER_MINOR ) "." X_VER_TEXT( X_VER_RELEASE )

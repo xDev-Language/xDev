@@ -28,7 +28,7 @@ public:
       --------------------------------------------------------------------------------------------- */
 
    bool generate( const X_PROGRAM &program, std::string &error, bool libraryModule = false,
-                  const X_LOCATION &location = {} );
+                  const X_LOCATION &location = {}, bool sharedModule = false );
 
    /* ---------------------------------------------------------------------------------------------
       Output
