@@ -18,8 +18,15 @@
 #
 # make builds the library, make install copies it into lib/xdev and its .ch files into include/xdev,
 # make uninstall removes it from lib/xdev.
+#
+# make build-shared builds a library of C files also as libx$(LIBRARY).dll with libxdev.dll (Windows,
+# make dynamic of xDev); make install-shared copies the DLL into bin next to xdev, where programs find it
+# through PATH, and its import library into lib/xdev, where xdev takes it instead of libx$(LIBRARY).a for
+# --shared and --dynamic.
 
 TARGET := libx$(LIBRARY).a
+SHARED_TARGET := libx$(LIBRARY).dll
+SHARED_IMPORT := libx$(LIBRARY).dll.a
 LABEL := $(shell printf '%s' '$(LIBRARY)' | tr '[:lower:]' '[:upper:]')
 BUILD_DIR := build
 MERGE_DIR := $(BUILD_DIR)/deps
@@ -38,7 +45,7 @@ CH_FILES := $(wildcard include/xdev/*.ch)
 CPPFLAGS := -I include $(XDEV_CPPFLAGS) $(LIBRARY_CPPFLAGS)
 CFLAGS := $(XDEV_CFLAGS) $(LIBRARY_CFLAGS)
 
-.PHONY: all build install uninstall clean tidy
+.PHONY: all build build-shared install install-shared uninstall clean tidy
 
 all:
 	$(SHELL) $(ROOT)/make/rebuild.sh $(LABEL) "$(MAKE)" build clean tidy
@@ -82,7 +89,23 @@ ifneq ($(MERGE_ARCHIVES),)
 endif
 	$(AR) s $@
 
+# Every symbol is exported, as from libxdev.dll
+build-shared: $(SHARED_TARGET)
+
+$(SHARED_TARGET): $(OBJECTS) $(EXTRA_OBJECTS)
+	test "$(HOST_PLATFORM)" = win || { echo "xDev $(LABEL): the DLL is built only on Windows"; exit 1; }
+	test -z "$(MERGE_ARCHIVES)" || { echo "xDev $(LABEL): a DLL with MERGE_ARCHIVES is not supported"; exit 1; }
+	test -f $(ROOT)/lib/libxdev.dll.a || { echo "xDev $(LABEL): build the runtime DLL first: make dynamic"; exit 1; }
+	rm -f $@ $(SHARED_IMPORT)
+	$(CXX) -shared -Wl,--export-all-symbols -Wl,--out-implib,$(SHARED_IMPORT) -o $@ $(OBJECTS) $(EXTRA_OBJECTS) \
+		$(ROOT)/lib/libxdev.dll.a $(XDEV_WINDOWS_LIBS)
+
 endif
+
+install-shared:
+	test -f $(SHARED_TARGET) || { echo "Build the DLL first: make build-shared"; exit 1; }
+	install -m 644 $(SHARED_IMPORT) $(ROOT)/lib/xdev/
+	install -m 755 $(SHARED_TARGET) $(ROOT)/bin/
 
 # The library is not rebuilt here: make removes the objects after a build
 install:
@@ -94,7 +117,7 @@ uninstall:
 	$(XDEV) uninstall $(TARGET)
 
 clean:
-	rm -rf $(BUILD_DIR) $(TARGET)
+	rm -rf $(BUILD_DIR) $(TARGET) $(SHARED_TARGET) $(SHARED_IMPORT)
 
 tidy:
 	rm -rf $(BUILD_DIR)
