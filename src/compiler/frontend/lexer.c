@@ -104,9 +104,7 @@ static const X_KEYWORD s_dotted[] = {
    { "OR",  TOK_OR      },
    { "NOT", TOK_NOT     },
    { "T",   TOK_TRUE    },
-   { "Y",   TOK_TRUE    },
    { "F",   TOK_FALSE   },
-   { "N",   TOK_FALSE   },
    { NULL,  TOK_KEYWORD }
 };
 
@@ -418,13 +416,14 @@ static int s_lexNumber( X_TOKLIST *list, const char *src, int len, int i, int li
    Words and operators
    --------------------------------------------------------------------------------------------- */
 
-/* Length of .WORD. at src[i] when WORD is in s_dotted, otherwise 0 */
-static int s_tryDotted( const char *src, int i, int len, X_TOKTYPE *outType )
+/* Length of .WORD. at src[i] in s_dotted, otherwise 0; right after a value only .AND. and .OR. count */
+static int s_tryDotted( const X_TOKLIST *list, const char *src, int i, int len, X_TOKTYPE *outType )
 {
    char word[16];
    int j = i + 1;
    int wordLen;
    int k;
+   int afterValue;
 
    while( j < len && isalpha( ( unsigned char )src[j] ) )
       j++;
@@ -442,6 +441,10 @@ static int s_tryDotted( const char *src, int i, int len, X_TOKTYPE *outType )
    word[wordLen] = '\0';
 
    if( !s_lookupKeyword( s_dotted, word, outType ) )
+      return 0;
+
+   afterValue = i > 0 && !isspace( ( unsigned char )src[i - 1] ) && s_tokenCanEndExpr( list );
+   if( afterValue && *outType != TOK_AND && *outType != TOK_OR )
       return 0;
 
    return j - i + 1;
@@ -604,7 +607,7 @@ X_TOKLIST x_lex( const char *src )
       }
 
       /* Dotted logical operators and constants; all other dots can mark STRUCT fields */
-      matchLen = IIF( c == '.', s_tryDotted( src, i, len, &type ), 0 );
+      matchLen = IIF( c == '.', s_tryDotted( &list, src, i, len, &type ), 0 );
       if( matchLen > 0 )
       {
          s_toklistAdd( &list, type, s_dupRaw( src + i, matchLen ), line );

@@ -98,6 +98,12 @@ static std::string s_where( const X_SOURCE_LOCATION &where )
    return where.file + ": linia " + std::to_string( where.line );
 }
 
+/* Two tokens written together in the source stay together in the output; macro tokens get a space */
+static bool s_sourceJoined( const PP_TOKEN &previous, const PP_TOKEN &token )
+{
+   return token.attached && previous.disabled.empty() && token.disabled.empty();
+}
+
 /* Tokens joined with one space, except where a token is attached to the previous one */
 static std::string s_text( const PP_TOKENS &tokens )
 {
@@ -821,6 +827,7 @@ private:
    bool emit( PP_TOKENS &tokens, const X_SOURCE_LOCATION &where )
    {
       size_t steps = 0;
+      const PP_TOKEN *previous = nullptr;
 
       if( !expand( tokens, where, steps ) )
          return false;
@@ -831,11 +838,15 @@ private:
          {
             m_output.text += '\n';
             m_output.lines.push_back( where );
+            previous = nullptr;
          }
          else
          {
+            if( previous && !s_sourceJoined( *previous, token ) )
+               m_output.text += ' ';
+
             m_output.text += token.text;
-            m_output.text += ' ';
+            previous = &token;
          }
       }
 

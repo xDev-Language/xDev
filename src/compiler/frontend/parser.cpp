@@ -4378,13 +4378,10 @@ static bool s_power( int64_t base, int64_t exponent, int64_t &value )
    return !overflow;
 }
 
-/* Words between dots: st.T. would read as .T. */
+/* Field names that the lexer reads as .AND. or .OR. after a value */
 static bool s_isDottedWord( const std::string &key )
 {
-   if( key == "AND" || key == "OR" || key == "NOT" )
-      return true;
-
-   return key == "T" || key == "F" || key == "Y" || key == "N";
+   return key == "AND" || key == "OR";
 }
 
 /* STRUCT fields: numbers, LOGIC, PTR and other STRUCTs */
@@ -4653,7 +4650,7 @@ bool X_PARSER::parseStructField( const X_STRUCT_DECL &structure, X_STRUCT_FIELD 
 
    if( s_isDottedWord( key ) )
    {
-      fail( "nazwa pola STRUCT koliduje ze stalym operatorem lub stala logiczna" );
+      fail( "nazwa pola STRUCT koliduje z operatorem .AND. lub .OR." );
       return false;
    }
 

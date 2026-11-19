@@ -802,6 +802,9 @@ private:
          if( expr.type != X_DECL_TYPE::STRUCT || target != X_DECL_TYPE::STRUCT )
             return fail( expr.line, context + ": STRUCT nie moze przejsc do ANY ani innego typu" );
 
+         if( !targetName.empty() && expr.typeName != targetName )
+            return fail( expr.line, context + ": niezgodne typy STRUCT " + expr.typeName + " i " + targetName );
+
          expr.conversion.reset();
          return true;
       }
@@ -1189,9 +1192,6 @@ private:
 
       if( expr.assignOp == X_ASSIGN_OP::SET )
       {
-         if( type == X_DECL_TYPE::STRUCT && target.typeName != value.typeName )
-            return fail( expr.line, "przypisanie: niezgodne typy STRUCT " + target.typeName + " i " + value.typeName );
-
          if( !coerce( value, type, "przypisanie", false, target.typeName ) )
             return false;
       }
@@ -1573,7 +1573,7 @@ private:
          expr.arrayElementTypeName = field->typeName;
       }
 
-      if( setting && !coerce( *expr.args[1], field->type, "przypisanie pola STRUCT" ) )
+      if( setting && !coerce( *expr.args[1], field->type, "przypisanie pola STRUCT", false, field->typeName ) )
          return false;
 
       return true;
@@ -1635,13 +1635,7 @@ private:
       if( !expression( *decl.init, scope ) )
          return false;
 
-      if( !coerce( *decl.init, type, "inicjalizacja " + decl.name, false, decl.declaredTypeName ) )
-         return false;
-
-      if( decl.declaredType == X_DECL_TYPE::STRUCT && decl.declaredTypeName != decl.init->typeName )
-         return fail( decl.line, "inicjalizacja: niezgodne typy STRUCT" );
-
-      return true;
+      return coerce( *decl.init, type, "inicjalizacja " + decl.name, false, decl.declaredTypeName );
    }
 
    bool assignStatement( X_STMT &stmt, const TYPE_SCOPE &scope )
