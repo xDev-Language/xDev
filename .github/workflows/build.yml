@@ -1,4 +1,5 @@
 # Builds xDev on Windows in MSYS2 CLANG64, as doc/README.md describes, and compiles and runs one example
+# and the plugin example with DLL modules
 name: Build
 
 on:
@@ -32,11 +33,12 @@ jobs:
             openssl:p
             curl:p
 
+      # make dynamic builds everything of make and the DLLs for --shared and --dynamic. No make install:
+      # the next steps put the bin folder of xDev on PATH, as a user does
       - name: Build
         run: |
           set -e
-          make
-          make install
+          make dynamic
 
       - name: Compile and run an example
         run: |
@@ -45,3 +47,14 @@ jobs:
           cd examples
           xdev class.prg
           ./class
+
+      # The shell loads the DLL modules of examples/plugin/plugins; libxdev.dll lies in bin, which is on PATH
+      - name: Build and run the plugin example
+        run: |
+          set -e
+          export PATH="$PWD/bin:$PATH"
+          cd examples/plugin
+          xdev --shared plugins/Invoice.prg -o plugins/Invoice.dll
+          xdev --shared plugins/Payroll.prg -o plugins/Payroll.dll
+          xdev --dynamic Shell.prg
+          ./Shell
