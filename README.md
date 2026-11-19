@@ -8,8 +8,7 @@ A statically and dynamically typed language for building efficient, modern appli
 
 ## Install
 
-xDev for Windows is built from source in the [MSYS2](https://www.msys2.org/) CLANG64 environment:
-`make`, `make install` and `clang64\bin` in PATH. Step by step: [doc/README.md](doc/README.md).
+How to build xDev: [doc/README.md](doc/README.md).
 
 ## License
 
