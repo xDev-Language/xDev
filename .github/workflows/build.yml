@@ -32,6 +32,7 @@ jobs:
             libpng:p
             openssl:p
             curl:p
+            webview2-loader:p
 
       # make dynamic builds everything of make and the DLLs for --shared and --dynamic. No make install:
       # the next steps put the bin folder of xDev on PATH, as a user does
