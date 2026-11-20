@@ -13,5 +13,11 @@ How to write an entry:
 
 ==============================================================================
 
+2026-11-19  xDev GUI
+  src/gui-api.c, src/internal-gui.c, src/internal-gui.h
+  + gui_Sidebar: a strip of page pictures at the left with buttons at its bottom and the panel
+    of the shown page with its title and actions; the mouse drags the width of the panel
+  * a gui_Panel that fills the window makes room for the sidebar
+
 2026-11-17  xDev GUI
   + first public release: src/gui-api.c, src/internal-gui.c, src/internal-gui.h, README.md, LICENSE
