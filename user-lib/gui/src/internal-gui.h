@@ -85,6 +85,14 @@ typedef enum
    X_GUI_GRID_COLORS
 } X_GUI_GRID_COLOR;
 
+/* Colors of a sidebar */
+typedef enum
+{
+   X_GUI_SIDEBAR_COLOR_BAR,
+   X_GUI_SIDEBAR_COLOR_ACCENT,
+   X_GUI_SIDEBAR_COLOR_COUNT
+} X_GUI_SIDEBAR_COLOR;
+
 /* Kinds of windows */
 typedef enum
 {
@@ -310,6 +318,21 @@ void x_guiStatusBarColor( X_CALL_CTX *ctx, X_GUI_COLOR part );
 void x_guiStatusBarSetColor( X_CALL_CTX *ctx, X_GUI_COLOR part );
 void x_guiToolbarColor( X_CALL_CTX *ctx, X_GUI_COLOR part );
 void x_guiToolbarSetColor( X_CALL_CTX *ctx, X_GUI_COLOR part );
+
+/* ---------------------------------------------------------------------------------------------
+   Sidebars
+   --------------------------------------------------------------------------------------------- */
+
+void x_guiSidebarNew( X_CALL_CTX *ctx );
+int x_guiSidebarAdd( X_CALL_CTX *ctx, HWND sidebar, X_ITEM *page );
+void x_guiSidebarPanel( X_CALL_CTX *ctx, HWND sidebar, int page );
+int x_guiSidebarAddButton( X_CALL_CTX *ctx, HWND sidebar, int page, const X_ITEM *bitmap, const X_ITEM *toolTip );
+int x_guiSidebarPage( HWND sidebar );
+void x_guiSidebarSelect( X_CALL_CTX *ctx, HWND sidebar, int page );
+int x_guiSidebarWidth( HWND sidebar );
+void x_guiSidebarSetWidth( HWND sidebar, int width );
+void x_guiSidebarColor( X_CALL_CTX *ctx, X_GUI_SIDEBAR_COLOR part );
+void x_guiSidebarSetColor( X_CALL_CTX *ctx, X_GUI_SIDEBAR_COLOR part );
 
 /* ---------------------------------------------------------------------------------------------
    Browses

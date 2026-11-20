@@ -2793,6 +2793,293 @@ X_FUNC( GUI_TOOLBAR )
 }
 
 /* ---------------------------------------------------------------------------------------------
+   gui_Sidebar
+   --------------------------------------------------------------------------------------------- */
+
+// Create a sidebar without pages at the left edge of the window, between the bars at the top and at the bottom;
+// the panels filling the window make room for it; a toolbar "Left" does not go together with it
+// gui_Sidebar():New( oWindow ) --> self
+X_FUNC_STATIC( GUI_SIDEBAR_NEW )
+{
+   X_ITEM *actions = x_objDataSlot( ctx, 1 );
+   X_ITEM buttons __attribute__( ( cleanup( x_itemClear ) ) ) = X_ITEM_NIL_INIT;
+
+   x_guiSidebarNew( ctx );
+   if( actions != NULL && !X_IS_ARRAY( actions ) )
+   {
+      x_arrayNew( actions, 0 );
+      x_arrayNew( &buttons, 0 );
+      x_arrayAdd( actions, &buttons );
+   }
+}
+
+// Add a page: its PNG or BMP picture on the strip and a panel for its controls under the header with cTitle;
+// a click on the picture shows the panel, a click on the picture of the shown page hides it; cToolTip is the tip
+// of the picture (cTitle without it), cShortcut is written as in gui_Menu; returns the number of the page,
+// counted from 1
+// oSidebar:Add( cTitle, cBitmap, [cToolTip], [cShortcut] ) --> nPage
+X_FUNC_STATIC( GUI_SIDEBAR_ADD )
+{
+   X_ITEM page __attribute__( ( cleanup( x_itemClear ) ) ) = X_ITEM_NIL_INIT;
+   X_ITEM blocks __attribute__( ( cleanup( x_itemClear ) ) ) = X_ITEM_NIL_INIT;
+   HWND window = x_guiSelfHandle( ctx, "GUI_SIDEBAR:ADD" );
+   X_ITEM *actions = x_objDataSlot( ctx, 1 );
+   int number, valid;
+
+   if( window == NULL || actions == NULL || !X_IS_ARRAY( actions ) )
+      return;
+
+   valid = X_ISCHAR( ctx, 2 ) && ( X_ISNIL( ctx, 3 ) || X_ISCHAR( ctx, 3 ) );
+   if( !valid || ( !X_ISNIL( ctx, 4 ) && !X_ISCHAR( ctx, 4 ) ) )
+   {
+      x_guiRaise( ctx, "GUI_SIDEBAR:ADD" );
+      return;
+   }
+
+   if( !x_objCreate( ctx, &page, x_clsRequire( "GUI_PANEL", GUI_PANEL ) ) )
+      return;
+
+   number = x_guiSidebarAdd( ctx, window, &page );
+   if( number != 0 )
+   {
+      x_arrayNew( &blocks, 0 );
+      x_arrayAdd( actions, &blocks );
+      x_retni( ctx, number );
+   }
+}
+
+// Return the panel of page nPage; controls are created on it as on a window
+// oSidebar:Panel( nPage ) --> oPanel
+X_FUNC_STATIC( GUI_SIDEBAR_PANEL )
+{
+   HWND window = x_guiSelfHandle( ctx, "GUI_SIDEBAR:PANEL" );
+
+   if( window != NULL )
+      x_guiSidebarPanel( ctx, window, x_parni( ctx, 1 ) );
+}
+
+// Add a button with a PNG or BMP picture at the right of the header of page nPage, shown with the page; bAction
+// runs on click and receives the sidebar
+// oSidebar:AddAction( nPage, cBitmap, bAction, [cToolTip] ) --> self
+X_FUNC_STATIC( GUI_SIDEBAR_ADDACTION )
+{
+   X_ITEM blocks __attribute__( ( cleanup( x_itemClear ) ) ) = X_ITEM_NIL_INIT;
+   HWND window = x_guiSelfHandle( ctx, "GUI_SIDEBAR:ADDACTION" );
+   X_ITEM *actions = x_objDataSlot( ctx, 1 );
+   int valid;
+
+   if( window == NULL || actions == NULL )
+      return;
+
+   valid = X_ISNUM( ctx, 1 ) && x_parni( ctx, 1 ) >= 1 && X_ISCHAR( ctx, 2 ) && X_ISBLOCK( ctx, 3 );
+   if( !valid || ( !X_ISNIL( ctx, 4 ) && !X_ISCHAR( ctx, 4 ) ) )
+   {
+      x_guiRaise( ctx, "GUI_SIDEBAR:ADDACTION" );
+      return;
+   }
+
+   if( !x_guiSidebarAddButton( ctx, window, x_parni( ctx, 1 ), x_paritem( ctx, 2 ), x_paritem( ctx, 4 ) ) )
+      return;
+
+   if( x_arrayGet( actions, ( size_t )x_parni( ctx, 1 ) + 1, &blocks ) )
+      x_arrayAdd( &blocks, x_paritem( ctx, 3 ) );
+
+   x_guiReturnSelf( ctx );
+}
+
+// Add a button with a PNG or BMP picture at the bottom of the strip, e.g. for the settings; bAction runs on click
+// and receives the sidebar
+// oSidebar:AddButton( cBitmap, bAction, [cToolTip] ) --> self
+X_FUNC_STATIC( GUI_SIDEBAR_ADDBUTTON )
+{
+   X_ITEM blocks __attribute__( ( cleanup( x_itemClear ) ) ) = X_ITEM_NIL_INIT;
+   HWND window = x_guiSelfHandle( ctx, "GUI_SIDEBAR:ADDBUTTON" );
+   X_ITEM *actions = x_objDataSlot( ctx, 1 );
+
+   if( window == NULL || actions == NULL )
+      return;
+
+   if( !X_ISCHAR( ctx, 1 ) || !X_ISBLOCK( ctx, 2 ) || ( !X_ISNIL( ctx, 3 ) && !X_ISCHAR( ctx, 3 ) ) )
+   {
+      x_guiRaise( ctx, "GUI_SIDEBAR:ADDBUTTON" );
+      return;
+   }
+
+   if( !x_guiSidebarAddButton( ctx, window, 0, x_paritem( ctx, 1 ), x_paritem( ctx, 3 ) ) )
+      return;
+
+   if( x_arrayGet( actions, 1, &blocks ) )
+      x_arrayAdd( &blocks, x_paritem( ctx, 2 ) );
+
+   x_guiReturnSelf( ctx );
+}
+
+// Return the number of the shown page, 0 when the panel is hidden
+// oSidebar:page --> nPage
+X_FUNC_STATIC( GUI_SIDEBAR_GETPAGE )
+{
+   HWND window = x_guiSelfHandle( ctx, "GUI_SIDEBAR:PAGE" );
+
+   if( window != NULL )
+      x_retni( ctx, x_guiSidebarPage( window ) );
+}
+
+// Show page nPage; 0 hides the panel and the window takes its room
+// oSidebar:page := nPage
+X_FUNC_STATIC( GUI_SIDEBAR_SETPAGE )
+{
+   HWND window = x_guiSelfHandle( ctx, "GUI_SIDEBAR:PAGE" );
+
+   if( window == NULL )
+      return;
+
+   if( !X_ISNUM( ctx, 1 ) )
+   {
+      x_guiRaise( ctx, "GUI_SIDEBAR:PAGE" );
+      return;
+   }
+
+   x_guiSidebarSelect( ctx, window, x_parni( ctx, 1 ) );
+   x_retni( ctx, x_parni( ctx, 1 ) );
+}
+
+// Return the width of the panel (logical pixels), without the strip of pictures; 260 at the start
+// oSidebar:width --> nWidth
+X_FUNC_STATIC( GUI_SIDEBAR_GETWIDTH )
+{
+   HWND window = x_guiSelfHandle( ctx, "GUI_SIDEBAR:WIDTH" );
+
+   if( window != NULL )
+      x_retni( ctx, x_guiSidebarWidth( window ) );
+}
+
+// Set the width of the panel, at least 170; the mouse changes it by dragging the right edge of the panel
+// oSidebar:width := nWidth
+X_FUNC_STATIC( GUI_SIDEBAR_SETWIDTH )
+{
+   HWND window = x_guiSelfHandle( ctx, "GUI_SIDEBAR:WIDTH" );
+
+   if( window == NULL )
+      return;
+
+   if( !X_ISNUM( ctx, 1 ) )
+   {
+      x_guiRaise( ctx, "GUI_SIDEBAR:WIDTH" );
+      return;
+   }
+
+   x_guiSidebarSetWidth( window, x_parni( ctx, 1 ) );
+   x_retni( ctx, x_guiSidebarWidth( window ) );
+}
+
+// Color of the strip of pictures (0xRRGGBB), NIL for the color of the panel a shade towards its text
+// oSidebar:barBackground --> nColor
+X_FUNC_STATIC( GUI_SIDEBAR_GETBARBACKGROUND )
+{
+   x_guiSidebarColor( ctx, X_GUI_SIDEBAR_COLOR_BAR );
+}
+
+// oSidebar:barBackground := nColor, NIL returns to the default color
+X_FUNC_STATIC( GUI_SIDEBAR_SETBARBACKGROUND )
+{
+   x_guiSidebarSetColor( ctx, X_GUI_SIDEBAR_COLOR_BAR );
+}
+
+// Color of the mark at the picture of the shown page, NIL for the selection color of the system
+// oSidebar:accent --> nColor
+X_FUNC_STATIC( GUI_SIDEBAR_GETACCENT )
+{
+   x_guiSidebarColor( ctx, X_GUI_SIDEBAR_COLOR_ACCENT );
+}
+
+// oSidebar:accent := nColor, NIL returns to the system color
+X_FUNC_STATIC( GUI_SIDEBAR_SETACCENT )
+{
+   x_guiSidebarSetColor( ctx, X_GUI_SIDEBAR_COLOR_ACCENT );
+}
+
+// Run the block of button nButton of page nPage, of the strip for 0 (internal)
+// oSidebar:__GuiCommand( nPage, nButton ) --> NIL
+X_FUNC_STATIC( GUI_SIDEBAR_COMMAND )
+{
+   const X_ITEM *actions = x_objDataSlot( ctx, 1 );
+   X_ITEM blocks __attribute__( ( cleanup( x_itemClear ) ) ) = X_ITEM_NIL_INIT;
+   X_ITEM block __attribute__( ( cleanup( x_itemClear ) ) ) = X_ITEM_NIL_INIT;
+   X_ITEM result __attribute__( ( cleanup( x_itemClear ) ) ) = X_ITEM_NIL_INIT;
+   X_ARG args[1];
+
+   if( actions == NULL || x_parni( ctx, 1 ) < 0 || x_parni( ctx, 2 ) < 1 )
+      return;
+
+   if( !x_arrayGet( actions, ( size_t )x_parni( ctx, 1 ) + 1, &blocks ) )
+      return;
+
+   if( !x_arrayGet( &blocks, ( size_t )x_parni( ctx, 2 ), &block ) || !X_IS_BLOCK( &block ) )
+      return;
+
+   args[0] = ( X_ARG ){ ctx->self, 0 };
+   x_evalBlock( ctx, &result, &block, 1, args );
+}
+
+// Run OnChange with the sidebar and the number of the shown page after a click on the strip (internal)
+// oSidebar:__GuiChange() --> NIL
+X_FUNC_STATIC( GUI_SIDEBAR_CHANGE )
+{
+   const X_ITEM *data = x_objDataSlot( ctx, 2 );
+   HWND window = x_guiSelfHandle( ctx, "GUI_SIDEBAR" );
+   X_ITEM block __attribute__( ( cleanup( x_itemClear ) ) ) = X_ITEM_NIL_INIT;
+   X_ITEM page __attribute__( ( cleanup( x_itemClear ) ) ) = X_ITEM_NIL_INIT;
+   X_ITEM result __attribute__( ( cleanup( x_itemClear ) ) ) = X_ITEM_NIL_INIT;
+   X_ARG args[2];
+
+   if( window == NULL || data == NULL || !X_IS_BLOCK( data ) )
+      return;
+
+   x_itemCopy( &block, data );
+   x_itemPutNI( &page, x_guiSidebarPage( window ) );
+   args[0] = ( X_ARG ){ ctx->self, 0 };
+   args[1] = ( X_ARG ){ &page, 0 };
+   x_evalBlock( ctx, &result, &block, 2, args );
+}
+
+// Sidebar as in code editors: a strip of page pictures at the left with buttons at its bottom and the panel of
+// the shown page with its title and actions; OnChange receives the sidebar and the number of the shown page
+// gui_Sidebar() --> oSidebar
+X_FUNC( GUI_SIDEBAR )
+{
+   static X_CLASS_HANDLE s_class = 0;
+
+   if( s_class == 0 )
+   {
+      s_class = x_clsCreate( 2, "GUI_SIDEBAR" );
+      x_clsAddParent( s_class, x_clsRequire( "GUI_WINDOW", GUI_WINDOW ) );
+      x_clsAddData( s_class, "ACTIONS", 1 );
+      x_clsSetScope( s_class, "ACTIONS", X_OO_CLSTP_HIDDEN );
+      x_clsAddData( s_class, "ONCHANGE", 2 );
+      x_clsSetDataType( s_class, "ONCHANGE", X_OO_VALUE_CODEBLOCK );
+
+      x_clsAdd( s_class, "NEW", X_FUNCNAME( GUI_SIDEBAR_NEW ) );
+      x_clsAdd( s_class, "ADD", X_FUNCNAME( GUI_SIDEBAR_ADD ) );
+      x_clsAdd( s_class, "PANEL", X_FUNCNAME( GUI_SIDEBAR_PANEL ) );
+      x_clsAdd( s_class, "ADDACTION", X_FUNCNAME( GUI_SIDEBAR_ADDACTION ) );
+      x_clsAdd( s_class, "ADDBUTTON", X_FUNCNAME( GUI_SIDEBAR_ADDBUTTON ) );
+
+      x_clsAddAccess( s_class, "PAGE", X_FUNCNAME( GUI_SIDEBAR_GETPAGE ) );
+      x_clsAddAssign( s_class, "PAGE", X_FUNCNAME( GUI_SIDEBAR_SETPAGE ) );
+      x_clsAddAccess( s_class, "WIDTH", X_FUNCNAME( GUI_SIDEBAR_GETWIDTH ) );
+      x_clsAddAssign( s_class, "WIDTH", X_FUNCNAME( GUI_SIDEBAR_SETWIDTH ) );
+      x_clsAddAccess( s_class, "BARBACKGROUND", X_FUNCNAME( GUI_SIDEBAR_GETBARBACKGROUND ) );
+      x_clsAddAssign( s_class, "BARBACKGROUND", X_FUNCNAME( GUI_SIDEBAR_SETBARBACKGROUND ) );
+      x_clsAddAccess( s_class, "ACCENT", X_FUNCNAME( GUI_SIDEBAR_GETACCENT ) );
+      x_clsAddAssign( s_class, "ACCENT", X_FUNCNAME( GUI_SIDEBAR_SETACCENT ) );
+      x_clsAdd( s_class, "__GUICOMMAND", X_FUNCNAME( GUI_SIDEBAR_COMMAND ) );
+      x_clsAdd( s_class, "__GUICHANGE", X_FUNCNAME( GUI_SIDEBAR_CHANGE ) );
+   }
+
+   x_clsReturn( ctx, s_class );
+}
+
+/* ---------------------------------------------------------------------------------------------
    gui_DatePicker
    --------------------------------------------------------------------------------------------- */
 

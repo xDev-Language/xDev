@@ -110,13 +110,14 @@ typedef struct
    X_ITEM *timer;
 } X_GUI_TIMER;
 
-/* Side of the parent a toolbar stands at */
+/* Side of the parent a toolbar stands at; a bar of a sidebar is placed by the sidebar */
 typedef enum
 {
    X_GUI_SIDE_TOP,
    X_GUI_SIDE_BOTTOM,
    X_GUI_SIDE_LEFT,
-   X_GUI_SIDE_RIGHT
+   X_GUI_SIDE_RIGHT,
+   X_GUI_SIDE_NONE
 } X_GUI_SIDE;
 
 /* A toolbar stands right in its window, at a side of it */
@@ -131,6 +132,48 @@ typedef struct
    UINT *modifiers;
    size_t count;
 } X_GUI_BAR;
+
+/* Sizes of a sidebar at 96 DPI: the strip of pictures, the header of the panel, the left margin of the title,
+   the gap at the right of the actions, the buttons of the actions, the mark of the shown page, the edge dragged
+   by the mouse, the first and the smallest width of the panel and the room it leaves for the window; the opacity
+   of the pictures of pages not shown */
+enum
+{
+   X_GUI_SIDEBAR_STRIP = 48,
+   X_GUI_SIDEBAR_HEADER = 35,
+   X_GUI_SIDEBAR_TITLE = 20,
+   X_GUI_SIDEBAR_GAP = 8,
+   X_GUI_SIDEBAR_ACTION = 22,
+   X_GUI_SIDEBAR_MARK = 2,
+   X_GUI_SIDEBAR_EDGE = 4,
+   X_GUI_SIDEBAR_WIDTH = 260,
+   X_GUI_SIDEBAR_MINWIDTH = 170,
+   X_GUI_SIDEBAR_REST = 100,
+   X_GUI_SIDEBAR_PALE = 150
+};
+
+/* A page of a sidebar: its panel, the bar of its actions in the header and its title */
+typedef struct
+{
+   HWND panel;
+   HWND actions;
+   wchar_t *title;
+} X_GUI_SIDEPAGE;
+
+/* A sidebar: the bar of pages at the top of the strip, the bar of buttons at its bottom and the panel of the shown
+   page; width of the panel at 96 DPI, page 0 when the panel is hidden, colors -1 for the system ones, drag set
+   while the mouse drags the edge */
+typedef struct
+{
+   HWND activity;
+   HWND buttons;
+   X_GUI_SIDEPAGE *pages;
+   size_t count;
+   int page;
+   int width;
+   int colors[X_GUI_SIDEBAR_COLOR_COUNT];
+   int drag;
+} X_GUI_SIDEBAR;
 
 /* Panels of a status bar: width in pixels at 96 DPI, 0 shares the rest of the bar; SBT_POPOUT is raised;
    colors of X_GUI_COLOR_FOREGROUND and X_GUI_COLOR_BACKGROUND, -1 for the system color; scoreboard is the
@@ -236,6 +279,7 @@ static const wchar_t s_cancelProperty[] = L"xDev.GUI.Cancel";
 static const wchar_t s_modalProperty[] = L"xDev.GUI.Modal";
 static const wchar_t s_toolTipProperty[] = L"xDev.GUI.ToolTip";
 static const wchar_t s_toolbarProperty[] = L"xDev.GUI.Toolbar";
+static const wchar_t s_sidebarProperty[] = L"xDev.GUI.Sidebar";
 static const wchar_t s_paintProperty[] = L"xDev.GUI.Paint";
 static const wchar_t s_maskProperty[] = L"xDev.GUI.Mask";
 static const wchar_t s_focusProperty[] = L"xDev.GUI.Focus";
@@ -542,6 +586,21 @@ static LRESULT s_menuChar( HMENU menu, wchar_t key );
    "M ASSIGN PRESSFOREGROUND 1 ANY - VALUE\n" \
    "M ACCESS PRESSBACKGROUND 1 ANY -\n" \
    "M ASSIGN PRESSBACKGROUND 1 ANY - VALUE\n" \
+   "C GUI_SIDEBAR GUI_WINDOW\n" \
+   "M DATA ONCHANGE 1 CODEBLOCK -\n" \
+   "M METHOD NEW 1 ANY - PARENT\n" \
+   "M METHOD ADD 1 ANY - TITLE BITMAP TOOLTIP SHORTCUT\n" \
+   "M METHOD PANEL 1 ANY - PAGE\n" \
+   "M METHOD ADDACTION 1 ANY - PAGE BITMAP ACTION TOOLTIP\n" \
+   "M METHOD ADDBUTTON 1 ANY - BITMAP ACTION TOOLTIP\n" \
+   "M ACCESS PAGE 1 ANY -\n" \
+   "M ASSIGN PAGE 1 ANY - VALUE\n" \
+   "M ACCESS WIDTH 1 ANY -\n" \
+   "M ASSIGN WIDTH 1 ANY - VALUE\n" \
+   "M ACCESS BARBACKGROUND 1 ANY -\n" \
+   "M ASSIGN BARBACKGROUND 1 ANY - VALUE\n" \
+   "M ACCESS ACCENT 1 ANY -\n" \
+   "M ASSIGN ACCENT 1 ANY - VALUE\n" \
    "C GUI_TIMER -\n" \
    "M DATA ONTIMER 1 CODEBLOCK -\n" \
    "M DATA PARENT 17 ANY -\n" \
@@ -1408,6 +1467,12 @@ static X_GUI_BAR *s_toolbarOf( HWND window )
    return ( X_GUI_BAR * )GetPropW( window, s_toolbarProperty );
 }
 
+/* The sidebar data of a window, or NULL when it is not a sidebar */
+static X_GUI_SIDEBAR *s_sidebarOf( HWND window )
+{
+   return ( X_GUI_SIDEBAR * )GetPropW( window, s_sidebarProperty );
+}
+
 /* The official xDev colors: blue bar, dark blue under the mouse, light while pressed */
 static void s_toolbarInit( HWND toolbar )
 {
@@ -1625,8 +1690,8 @@ static int s_shown( HWND window )
    return window != NULL && ( GetWindowLongPtrW( window, GWL_STYLE ) & WS_VISIBLE ) != 0;
 }
 
-/* What the toolbars and the status bar leave of the parent; with lHorizontal only the bars at the top and
-   at the bottom count, the side bars stand between them */
+/* What the toolbars, the sidebar and the status bar leave of the parent; with lHorizontal only the bars at the top
+   and at the bottom count, the side bars and the sidebar stand between them */
 static void s_barsArea( HWND parent, RECT *area, int horizontal )
 {
    HWND child;
@@ -1640,7 +1705,12 @@ static void s_barsArea( HWND parent, RECT *area, int horizontal )
       if( !s_shown( child ) || !GetWindowRect( child, &frame ) )
          continue;
 
-      if( bar == NULL )
+      if( s_sidebarOf( child ) != NULL )
+      {
+         if( !horizontal )
+            area->left += frame.right - frame.left;
+      }
+      else if( bar == NULL )
       {
          if( s_hasClass( child, STATUSCLASSNAMEW ) )
             area->bottom -= frame.bottom - frame.top;
@@ -1651,7 +1721,7 @@ static void s_barsArea( HWND parent, RECT *area, int horizontal )
          area->bottom -= frame.bottom - frame.top;
       else if( !horizontal && bar->side == X_GUI_SIDE_LEFT )
          area->left += frame.right - frame.left;
-      else if( !horizontal )
+      else if( !horizontal && bar->side == X_GUI_SIDE_RIGHT )
          area->right -= frame.right - frame.left;
    }
 }
@@ -1700,7 +1770,7 @@ static int s_toolbarStretch( HWND toolbar, int width )
 }
 
 /* A toolbar at the top or at the bottom goes across the whole parent, a bar at the left or right side between
-   them takes the width of its buttons */
+   them takes the width of its buttons; the sidebar places its own bars */
 static void s_toolbarPlace( HWND toolbar )
 {
    X_GUI_BAR *bar = s_toolbarOf( toolbar );
@@ -1712,7 +1782,7 @@ static void s_toolbarPlace( HWND toolbar )
    SIZE buttons = { 0, 0 };
    RECT client, area, line;
 
-   if( bar == NULL )
+   if( bar == NULL || bar->side == X_GUI_SIDE_NONE )
       return;
 
    GetClientRect( parent, &client );
@@ -2602,6 +2672,33 @@ static BOOL CALLBACK s_layoutPanel( HWND child, LPARAM parent )
    return TRUE;
 }
 
+/* The sidebar stands at the left edge of its window between the bars at the top and at the bottom; it is as wide
+   as its strip of pictures, with the panel of the shown page and its edge */
+static void s_sidebarPlace( HWND sidebar )
+{
+   const X_GUI_SIDEBAR *side = s_sidebarOf( sidebar );
+   UINT dpi = GetDpiForWindow( sidebar );
+   int width = s_scale( X_GUI_SIDEBAR_STRIP, dpi );
+   int height;
+   RECT area;
+
+   if( side->page > 0 )
+      width += s_scale( side->width + X_GUI_SIDEBAR_EDGE, dpi );
+
+   s_barsArea( GetParent( sidebar ), &area, 1 );
+   height = IIF( area.bottom > area.top, area.bottom - area.top, 0 );
+   SetWindowPos( sidebar, NULL, 0, area.top, width, height, SWP_NOZORDER | SWP_NOACTIVATE );
+}
+
+/* A sidebar of the window follows its new size */
+static BOOL CALLBACK s_layoutSidebar( HWND child, LPARAM parent )
+{
+   if( GetParent( child ) == ( HWND )parent && s_sidebarOf( child ) != NULL )
+      s_sidebarPlace( child );
+
+   return TRUE;
+}
+
 /* Release the keys of SetKey() of a window */
 static void s_keysRelease( HWND window )
 {
@@ -2689,6 +2786,7 @@ static LRESULT CALLBACK s_windowProc( HWND window, UINT message, WPARAM wParam, 
       EnumChildWindows( window, s_resizeStatusBar, ( LPARAM )window );
       EnumChildWindows( window, s_layoutToolbar, ( LPARAM )window );
       EnumChildWindows( window, s_layoutSideToolbar, ( LPARAM )window );
+      EnumChildWindows( window, s_layoutSidebar, ( LPARAM )window );
       EnumChildWindows( window, s_layoutPanel, ( LPARAM )window );
       if( wParam != SIZE_MINIMIZED )
          s_layout( window, LOWORD( lParam ), HIWORD( lParam ) );
@@ -8903,9 +9001,10 @@ void x_guiToolbarNew( X_CALL_CTX *ctx )
       x_callbackEnterDll();
       s_toolbarDock( toolbar, bar );
       s_toolbarPlace( toolbar );
-      /* The side bars and the panels make room for the new bar */
+      /* The side bars, the sidebar and the panels make room for the new bar */
       parent = GetParent( toolbar );
       EnumChildWindows( parent, s_layoutSideToolbar, ( LPARAM )parent );
+      EnumChildWindows( parent, s_layoutSidebar, ( LPARAM )parent );
       EnumChildWindows( parent, s_layoutPanel, ( LPARAM )parent );
       x_callbackLeaveDll();
       x_callbackRaisePending();
@@ -9073,7 +9172,7 @@ int x_guiToolbarAdd( X_CALL_CTX *ctx, HWND toolbar, const X_ITEM *text, const X_
    memset( &button, 0, sizeof( button ) );
    button.iBitmap = image;
    button.idCommand = ( int )bar->count + 1;
-   vertical = bar->side == X_GUI_SIDE_LEFT || bar->side == X_GUI_SIDE_RIGHT;
+   vertical = ( SendMessageW( toolbar, TB_GETSTYLE, 0, 0 ) & CCS_VERT ) != 0;
    button.fsState = ( BYTE )( TBSTATE_ENABLED | IIF( vertical, TBSTATE_WRAP, 0 ) );
    button.fsStyle = ( BYTE )IIF( dropDown, BTNS_WHOLEDROPDOWN, BTNS_BUTTON );
    button.iString = ( INT_PTR )label;
@@ -9129,13 +9228,12 @@ void x_guiToolbarPopup( HWND toolbar, int button, HMENU menu )
 /* Add a gap between buttons */
 void x_guiToolbarSeparator( X_CALL_CTX *ctx, HWND toolbar )
 {
-   const X_GUI_BAR *bar = s_toolbarOf( toolbar );
    TBBUTTON button;
 
    memset( &button, 0, sizeof( button ) );
    button.iBitmap = s_scale( 8, GetDpiForWindow( toolbar ) );
    button.fsStyle = BTNS_SEP;
-   if( bar != NULL && ( bar->side == X_GUI_SIDE_LEFT || bar->side == X_GUI_SIDE_RIGHT ) )
+   if( SendMessageW( toolbar, TB_GETSTYLE, 0, 0 ) & CCS_VERT )
       button.fsState = TBSTATE_WRAP;
 
    if( !s_send( toolbar, TB_ADDBUTTONSW, 1, ( LPARAM )&button ) )
@@ -9228,6 +9326,662 @@ void x_guiToolbarSetColor( X_CALL_CTX *ctx, X_GUI_COLOR part )
 
    bar->colors[part] = IIF( X_ISNIL( ctx, 1 ), -1, ( int )x_parnint( ctx, 1 ) );
    InvalidateRect( toolbar, NULL, TRUE );
+   x_itemReturn( ctx, x_paritem( ctx, 1 ) );
+}
+
+/* ---------------------------------------------------------------------------------------------
+   Sidebars
+   --------------------------------------------------------------------------------------------- */
+
+/* A color between two colors: amount of 255 parts of the second one */
+static COLORREF s_mix( COLORREF first, COLORREF second, int amount )
+{
+   int red = GetRValue( first ) + ( GetRValue( second ) - GetRValue( first ) ) * amount / 255;
+   int green = GetGValue( first ) + ( GetGValue( second ) - GetGValue( first ) ) * amount / 255;
+   int blue = GetBValue( first ) + ( GetBValue( second ) - GetBValue( first ) ) * amount / 255;
+
+   return RGB( red, green, blue );
+}
+
+/* The panel and its title have the colors of the sidebar window, otherwise those of the system */
+static void s_sidebarPanelColors( HWND sidebar, COLORREF *back, COLORREF *fore )
+{
+   const X_GUI_PAINT *paint = s_paintOf( sidebar );
+
+   *back = GetSysColor( COLOR_BTNFACE );
+   *fore = GetSysColor( COLOR_BTNTEXT );
+   if( paint != NULL && paint->brush != NULL )
+      *back = s_colorRef( paint->colors[X_GUI_COLOR_BACKGROUND] );
+
+   if( paint != NULL && paint->colors[X_GUI_COLOR_FOREGROUND] >= 0 )
+      *fore = s_colorRef( paint->colors[X_GUI_COLOR_FOREGROUND] );
+}
+
+/* The strip of pictures has its own color, otherwise the color of the panel a shade towards its text */
+static COLORREF s_sidebarStripColor( HWND sidebar, const X_GUI_SIDEBAR *side )
+{
+   COLORREF back, fore;
+
+   if( side->colors[X_GUI_SIDEBAR_COLOR_BAR] >= 0 )
+      return s_colorRef( side->colors[X_GUI_SIDEBAR_COLOR_BAR] );
+
+   s_sidebarPanelColors( sidebar, &back, &fore );
+
+   return s_mix( back, fore, 16 );
+}
+
+/* Whether a window is one of the bars of the sidebar */
+static int s_sidebarBar( const X_GUI_SIDEBAR *side, HWND window )
+{
+   size_t i;
+
+   if( window == side->activity || window == side->buttons )
+      return 1;
+
+   for( i = 0; i < side->count; ++i )
+   {
+      if( window == side->pages[i].actions )
+         return 1;
+   }
+
+   return 0;
+}
+
+/* A bar of picture buttons without text, placed by the sidebar; the bar of pages and the bar of buttons have their
+   pictures one under another, the bar of actions of a page stays hidden until the page is shown */
+static HWND s_sidebarToolbar( HWND sidebar, int vertical )
+{
+   DWORD style = WS_CHILD | WS_CLIPSIBLINGS | TBSTYLE_FLAT | TBSTYLE_TOOLTIPS;
+   HINSTANCE instance = GetModuleHandleW( NULL );
+   HWND toolbar;
+
+   style |= CCS_NOPARENTALIGN | CCS_NORESIZE | CCS_NODIVIDER;
+   style |= IIF( vertical, ( DWORD )( WS_VISIBLE | CCS_VERT | TBSTYLE_WRAPABLE ), 0 );
+   s_initCommonControls();
+   toolbar = CreateWindowExW( 0, TOOLBARCLASSNAMEW, NULL, style, 0, 0, 0, 0, sidebar, NULL, instance, NULL );
+   if( toolbar == NULL )
+      return NULL;
+
+   s_toolbarInit( toolbar );
+   s_toolbarOf( toolbar )->side = X_GUI_SIDE_NONE;
+   SendMessageW( toolbar, TB_SETMAXTEXTROWS, 0, 0 );
+   SendMessageW( toolbar, TB_SETPADDING, 0, 0 );
+
+   return toolbar;
+}
+
+/* The buttons of a bar of the sidebar are squares of size pixels at 96 DPI, larger for larger pictures; returns
+   their size in pixels */
+static int s_sidebarButtons( HWND toolbar, int size )
+{
+   const X_GUI_BAR *bar = s_toolbarOf( toolbar );
+   UINT dpi = GetDpiForWindow( toolbar );
+   int length = s_scale( size, dpi );
+   int width = 0, height = 0, picture;
+
+   if( bar != NULL && bar->images != NULL )
+      ImageList_GetIconSize( bar->images, &width, &height );
+
+   picture = IIF( width > height, width, height ) + s_scale( 6, dpi );
+   length = IIF( picture > length, picture, length );
+   SendMessageW( toolbar, TB_SETBUTTONWIDTH, 0, MAKELPARAM( length, length ) );
+   SendMessageW( toolbar, TB_SETBUTTONSIZE, 0, MAKELPARAM( length, length ) );
+
+   return length;
+}
+
+/* Place the parts of the sidebar: the bar of pages at the top of the strip, the bar of buttons at its bottom, the
+   bar of actions at the right of the header and the panel of the shown page under the header; hidden panels get
+   the same place, so the anchors of their controls count from it */
+static void s_sidebarLayout( HWND sidebar )
+{
+   const X_GUI_SIDEBAR *side = s_sidebarOf( sidebar );
+   UINT dpi = GetDpiForWindow( sidebar );
+   UINT flags = SWP_NOZORDER | SWP_NOACTIVATE;
+   int strip = s_scale( X_GUI_SIDEBAR_STRIP, dpi );
+   int header = s_scale( X_GUI_SIDEBAR_HEADER, dpi );
+   int width = s_scale( side->width, dpi );
+   int size, count, top, x, y, height;
+   RECT client;
+   size_t i;
+
+   GetClientRect( sidebar, &client );
+   size = s_sidebarButtons( side->buttons, X_GUI_SIDEBAR_STRIP );
+   count = ( int )SendMessageW( side->buttons, TB_BUTTONCOUNT, 0, 0 );
+   top = IIF( client.bottom > size * count, client.bottom - size * count, 0 );
+   SetWindowPos( side->buttons, NULL, 0, top, strip, size * count, flags );
+   s_sidebarButtons( side->activity, X_GUI_SIDEBAR_STRIP );
+   SetWindowPos( side->activity, NULL, 0, 0, strip, top, flags );
+
+   height = IIF( client.bottom > header, client.bottom - header, 0 );
+   for( i = 0; i < side->count; ++i )
+   {
+      const X_GUI_SIDEPAGE *page = &side->pages[i];
+      UINT show = IIF( ( int )i + 1 == side->page, SWP_SHOWWINDOW, SWP_HIDEWINDOW );
+
+      size = s_sidebarButtons( page->actions, X_GUI_SIDEBAR_ACTION );
+      count = ( int )SendMessageW( page->actions, TB_BUTTONCOUNT, 0, 0 );
+      x = strip + width - s_scale( X_GUI_SIDEBAR_GAP, dpi ) - size * count;
+      y = ( header - size ) / 2;
+      SetWindowPos( page->actions, NULL, x, y, size * count, size, flags | show );
+      SetWindowPos( page->panel, NULL, strip, header, width, height, flags | show );
+   }
+
+   InvalidateRect( sidebar, NULL, TRUE );
+   InvalidateRect( side->activity, NULL, TRUE );
+}
+
+/* The sidebar takes its new width and the panels filling the window follow it */
+static void s_sidebarResize( HWND sidebar )
+{
+   HWND parent = GetParent( sidebar );
+
+   s_sidebarPlace( sidebar );
+   s_sidebarLayout( sidebar );
+   EnumChildWindows( parent, s_layoutPanel, ( LPARAM )parent );
+}
+
+/* Show the panel of a page, page 0 hides the panel; the focus leaves a hidden panel for the window */
+static void s_sidebarShow( HWND sidebar, X_GUI_SIDEBAR *side, int page )
+{
+   HWND focus = GetFocus();
+
+   side->page = page;
+   s_sidebarResize( sidebar );
+   if( focus != NULL && IsChild( sidebar, focus ) && !IsWindowVisible( focus ) )
+      SetFocus( GetParent( sidebar ) );
+}
+
+/* The sidebar paints its strip, the title of the shown page and the line at its edge */
+static void s_sidebarPaint( HWND sidebar, const X_GUI_SIDEBAR *side )
+{
+   PAINTSTRUCT state;
+   HDC dc = BeginPaint( sidebar, &state );
+   UINT dpi = GetDpiForWindow( sidebar );
+   HGDIOBJ old = SelectObject( dc, s_font( dpi ) );
+   HBRUSH brush = ( HBRUSH )GetStockObject( DC_BRUSH );
+   int strip = s_scale( X_GUI_SIDEBAR_STRIP, dpi );
+   int left = strip + s_scale( X_GUI_SIDEBAR_TITLE, dpi );
+   int header = s_scale( X_GUI_SIDEBAR_HEADER, dpi );
+   const X_GUI_SIDEPAGE *page;
+   COLORREF back, fore;
+   RECT client, part, actions;
+
+   s_sidebarPanelColors( sidebar, &back, &fore );
+   GetClientRect( sidebar, &client );
+   part = ( RECT ){ 0, 0, strip, client.bottom };
+   SetDCBrushColor( dc, s_sidebarStripColor( sidebar, side ) );
+   FillRect( dc, &part, brush );
+   if( side->page > 0 )
+   {
+      page = &side->pages[side->page - 1];
+      GetWindowRect( page->actions, &actions );
+      MapWindowPoints( NULL, sidebar, ( POINT * )&actions, 2 );
+      part = ( RECT ){ left, 0, actions.left, header };
+      SetBkMode( dc, TRANSPARENT );
+      SetTextColor( dc, fore );
+      DrawTextW( dc, page->title, -1, &part, DT_LEFT | DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX | DT_END_ELLIPSIS );
+
+      part = ( RECT ){ client.right - 1, 0, client.right, client.bottom };
+      SetDCBrushColor( dc, s_mix( back, fore, 48 ) );
+      FillRect( dc, &part, brush );
+   }
+
+   SelectObject( dc, old );
+   EndPaint( sidebar, &state );
+}
+
+/* The buttons of the bars of the sidebar are pictures on the color of their bar; the shown page has a mark at the
+   left edge of its picture, the other pages and the buttons are paler until the mouse comes over them; an action
+   under the mouse lies on a field a shade towards the text */
+static LRESULT s_sidebarDraw( HWND sidebar, const X_GUI_SIDEBAR *side, NMTBCUSTOMDRAW *draw )
+{
+   HWND toolbar = draw->nmcd.hdr.hwndFrom;
+   HDC dc = draw->nmcd.hdc;
+   const X_GUI_BAR *bar = s_toolbarOf( toolbar );
+   UINT dpi = GetDpiForWindow( toolbar );
+   HBRUSH brush = ( HBRUSH )GetStockObject( DC_BRUSH );
+   int strip = toolbar == side->activity || toolbar == side->buttons;
+   int hot = ( draw->nmcd.uItemState & ( CDIS_HOT | CDIS_SELECTED ) ) != 0;
+   int shown = toolbar == side->activity && ( int )draw->nmcd.dwItemSpec == side->page;
+   int accent = side->colors[X_GUI_SIDEBAR_COLOR_ACCENT];
+   int width = 0, height = 0;
+   IMAGELISTDRAWPARAMS image;
+   TBBUTTONINFOW info;
+   COLORREF back, fore;
+   RECT face;
+
+   s_sidebarPanelColors( sidebar, &back, &fore );
+   if( strip )
+      back = s_sidebarStripColor( sidebar, side );
+
+   if( draw->nmcd.dwDrawStage == CDDS_PREPAINT )
+   {
+      SetDCBrushColor( dc, back );
+      FillRect( dc, &draw->nmcd.rc, brush );
+      return CDRF_NOTIFYITEMDRAW;
+   }
+
+   if( draw->nmcd.dwDrawStage != CDDS_ITEMPREPAINT )
+      return CDRF_DODEFAULT;
+
+   face = draw->nmcd.rc;
+   SetDCBrushColor( dc, back );
+   FillRect( dc, &face, brush );
+   if( hot && !strip )
+   {
+      InflateRect( &face, -s_scale( 1, dpi ), -s_scale( 1, dpi ) );
+      SetDCBrushColor( dc, s_mix( back, fore, 40 ) );
+      FillRect( dc, &face, brush );
+   }
+
+   if( shown )
+   {
+      face = draw->nmcd.rc;
+      face.right = face.left + s_scale( X_GUI_SIDEBAR_MARK, dpi );
+      SetDCBrushColor( dc, IIF( accent >= 0, s_colorRef( accent ), GetSysColor( COLOR_HIGHLIGHT ) ) );
+      FillRect( dc, &face, brush );
+   }
+
+   memset( &info, 0, sizeof( info ) );
+   info.cbSize = sizeof( info );
+   info.dwMask = TBIF_IMAGE;
+   info.iImage = I_IMAGENONE;
+   SendMessageW( toolbar, TB_GETBUTTONINFOW, draw->nmcd.dwItemSpec, ( LPARAM )&info );
+   if( bar == NULL || bar->images == NULL || info.iImage < 0 )
+      return CDRF_SKIPDEFAULT;
+
+   ImageList_GetIconSize( bar->images, &width, &height );
+   memset( &image, 0, sizeof( image ) );
+   image.cbSize = sizeof( image );
+   image.himl = bar->images;
+   image.i = info.iImage;
+   image.hdcDst = dc;
+   image.x = ( draw->nmcd.rc.left + draw->nmcd.rc.right - width ) / 2;
+   image.y = ( draw->nmcd.rc.top + draw->nmcd.rc.bottom - height ) / 2;
+   image.rgbBk = CLR_NONE;
+   image.rgbFg = CLR_NONE;
+   image.fStyle = ILD_TRANSPARENT;
+   image.fState = ILS_ALPHA;
+   image.Frame = ( DWORD )IIF( strip && !shown && !hot, X_GUI_SIDEBAR_PALE, 255 );
+   ImageList_DrawIndirect( &image );
+
+   return CDRF_SKIPDEFAULT;
+}
+
+/* A click on a bar of the sidebar: a page shows its panel and the shown page hides it, both run OnChange; a button
+   and an action run their blocks; 0 when the bar is not one of the sidebar */
+static int s_sidebarCommand( HWND sidebar, X_GUI_SIDEBAR *side, HWND toolbar, int button )
+{
+   X_ITEM *object = ( X_ITEM * )GetWindowLongPtrW( sidebar, GWLP_USERDATA );
+   X_ITEM result __attribute__( ( cleanup( x_itemClear ) ) ) = X_ITEM_NIL_INIT;
+   int64_t values[2] = { 0, button };
+   size_t i;
+
+   if( object == NULL || !s_sidebarBar( side, toolbar ) )
+      return 0;
+
+   if( toolbar == side->activity )
+   {
+      s_sidebarShow( sidebar, side, IIF( button == side->page, 0, button ) );
+      if( side->page > 0 )
+         SetFocus( side->pages[side->page - 1].panel );
+
+      s_notify( object, "__GUICHANGE", &result, 0, NULL );
+      return 1;
+   }
+
+   for( i = 0; i < side->count; ++i )
+   {
+      if( toolbar == side->pages[i].actions )
+         values[0] = ( int64_t )i + 1;
+   }
+
+   s_notify( object, "__GUICOMMAND", &result, 2, values );
+
+   return 1;
+}
+
+/* Whether the point x of the sidebar lies on the edge of the shown panel, where the mouse changes its width */
+static int s_sidebarOnEdge( HWND sidebar, const X_GUI_SIDEBAR *side, int x )
+{
+   UINT dpi = GetDpiForWindow( sidebar );
+
+   return side->page > 0 && x >= s_scale( X_GUI_SIDEBAR_STRIP, dpi ) + s_scale( side->width, dpi );
+}
+
+/* The edge dragged to x: the panel takes the new width, not less than the smallest one and leaving room for the
+   rest of the window */
+static void s_sidebarDrag( HWND sidebar, X_GUI_SIDEBAR *side, int x )
+{
+   UINT dpi = GetDpiForWindow( sidebar );
+   int least = s_scale( X_GUI_SIDEBAR_MINWIDTH, dpi );
+   int width = x - s_scale( X_GUI_SIDEBAR_STRIP, dpi ) - s_scale( X_GUI_SIDEBAR_EDGE, dpi ) / 2;
+   int most;
+   RECT client;
+
+   GetClientRect( GetParent( sidebar ), &client );
+   most = client.right - s_scale( X_GUI_SIDEBAR_STRIP + X_GUI_SIDEBAR_EDGE + X_GUI_SIDEBAR_REST, dpi );
+   width = IIF( width > most, most, width );
+   width = IIF( width < least, least, width );
+   width = MulDiv( width, USER_DEFAULT_SCREEN_DPI, ( int )dpi );
+   if( width == side->width )
+      return;
+
+   side->width = width;
+   s_sidebarResize( sidebar );
+}
+
+/* Release the pages of a sidebar; its bars and panels are released as windows */
+static void s_sidebarRelease( HWND sidebar )
+{
+   X_GUI_SIDEBAR *side = ( X_GUI_SIDEBAR * )RemovePropW( sidebar, s_sidebarProperty );
+   size_t i;
+
+   if( side == NULL )
+      return;
+
+   for( i = 0; i < side->count; ++i )
+      x_xfree( side->pages[i].title );
+
+   x_xfree( side->pages );
+   x_xfree( side );
+}
+
+/* The sidebar paints itself, places its parts, runs the clicks on its bars and lets the mouse drag its edge */
+static LRESULT CALLBACK s_sidebarProc( HWND sidebar, UINT message, WPARAM wParam, LPARAM lParam, UINT_PTR id,
+                                       DWORD_PTR data )
+{
+   X_GUI_SIDEBAR *side = s_sidebarOf( sidebar );
+   const NMHDR *header = ( const NMHDR * )lParam;
+   POINT point;
+
+   UNUSED( data );
+   if( side == NULL )
+      return DefSubclassProc( sidebar, message, wParam, lParam );
+
+   switch( message )
+   {
+   case WM_PAINT:
+      s_sidebarPaint( sidebar, side );
+      return 0;
+
+   case WM_SIZE:
+      s_sidebarLayout( sidebar );
+      break;
+
+   case WM_NOTIFY:
+      if( header->code == NM_CUSTOMDRAW && s_sidebarBar( side, header->hwndFrom ) )
+         return s_sidebarDraw( sidebar, side, ( NMTBCUSTOMDRAW * )lParam );
+
+      break;
+
+   case WM_COMMAND:
+      if( lParam != 0 && s_sidebarCommand( sidebar, side, ( HWND )lParam, LOWORD( wParam ) ) )
+         return 0;
+
+      break;
+
+   case WM_SETCURSOR:
+      GetCursorPos( &point );
+      ScreenToClient( sidebar, &point );
+      if( ( HWND )wParam == sidebar && LOWORD( lParam ) == HTCLIENT && s_sidebarOnEdge( sidebar, side, point.x ) )
+      {
+         SetCursor( LoadCursorW( NULL, IDC_SIZEWE ) );
+         return TRUE;
+      }
+      break;
+
+   case WM_LBUTTONDOWN:
+      if( s_sidebarOnEdge( sidebar, side, ( short )LOWORD( lParam ) ) )
+      {
+         side->drag = 1;
+         SetCapture( sidebar );
+         return 0;
+      }
+      break;
+
+   case WM_MOUSEMOVE:
+      if( side->drag )
+      {
+         s_sidebarDrag( sidebar, side, ( short )LOWORD( lParam ) );
+         return 0;
+      }
+      break;
+
+   case WM_LBUTTONUP:
+      if( side->drag )
+      {
+         ReleaseCapture();
+         return 0;
+      }
+      break;
+
+   case WM_CAPTURECHANGED:
+      side->drag = 0;
+      break;
+
+   case WM_NCDESTROY:
+      s_sidebarRelease( sidebar );
+      RemoveWindowSubclass( sidebar, s_sidebarProc, id );
+      break;
+   }
+
+   return DefSubclassProc( sidebar, message, wParam, lParam );
+}
+
+/* gui_Sidebar():New( oWindow ): a sidebar without pages at the left edge of the window; the panels filling the
+   window make room for it */
+void x_guiSidebarNew( X_CALL_CTX *ctx )
+{
+   const X_ITEM *owner = x_paritem( ctx, 1 );
+   HWND parent = x_guiObjectWindow( ctx, owner, "GUI_SIDEBAR:NEW" );
+   HWND sidebar, activity, buttons;
+   X_GUI_SIDEBAR *side;
+   DWORD error;
+
+   if( parent == NULL )
+      return;
+
+   s_windowSend( ctx, ctx->self, owner, NULL, 1, 1, X_GUI_WINDOW_PANEL, 0 );
+   sidebar = s_objectHandle( ctx, ctx->self );
+   if( sidebar == NULL || !IsWindow( sidebar ) )
+      return;
+
+   x_callbackEnterDll();
+   activity = s_sidebarToolbar( sidebar, 1 );
+   buttons = IIF( activity != NULL, s_sidebarToolbar( sidebar, 1 ), NULL );
+   error = GetLastError();
+   if( buttons == NULL )
+   {
+      s_destroyWindow( sidebar );
+      x_callbackLeaveDll();
+      x_callbackRaisePending();
+      x_guiRaiseWin32( ctx, "CreateWindowExW", error );
+      return;
+   }
+
+   side = ( X_GUI_SIDEBAR * )x_xgrab( sizeof( X_GUI_SIDEBAR ) );
+   memset( side, 0, sizeof( *side ) );
+   side->activity = activity;
+   side->buttons = buttons;
+   side->width = X_GUI_SIDEBAR_WIDTH;
+   side->colors[X_GUI_SIDEBAR_COLOR_BAR] = -1;
+   side->colors[X_GUI_SIDEBAR_COLOR_ACCENT] = -1;
+   SetPropW( sidebar, s_sidebarProperty, side );
+   SetWindowSubclass( sidebar, s_sidebarProc, 1, 0 );
+   s_sidebarResize( sidebar );
+   x_callbackLeaveDll();
+   x_callbackRaisePending();
+}
+
+/* Add a page: its panel, the bar of its actions and its picture on the bar of pages with the title in the tip
+   without cToolTip; arguments cTitle, cBitmap, cToolTip and cShortcut as in oSidebar:Add(); returns the number
+   of the page, 0 with an error raised */
+int x_guiSidebarAdd( X_CALL_CTX *ctx, HWND sidebar, X_ITEM *page )
+{
+   X_GUI_SIDEBAR *side = s_sidebarOf( sidebar );
+   const X_ITEM *toolTip = IIF( X_ISNIL( ctx, 3 ), x_paritem( ctx, 1 ), x_paritem( ctx, 3 ) );
+   X_ITEM empty __attribute__( ( cleanup( x_itemClear ) ) ) = X_ITEM_NIL_INIT;
+   wchar_t *title = x_guiText( ctx, x_paritem( ctx, 1 ), "GUI_SIDEBAR:ADD" );
+   HWND actions, panel;
+   DWORD error;
+
+   if( title == NULL )
+      return 0;
+
+   x_callbackEnterDll();
+   actions = s_sidebarToolbar( sidebar, 0 );
+   error = GetLastError();
+   x_callbackLeaveDll();
+   if( actions == NULL )
+   {
+      x_xfree( title );
+      x_guiRaiseWin32( ctx, "CreateWindowExW", error );
+      return 0;
+   }
+
+   s_windowSend( ctx, page, ctx->self, NULL, 10, 10, X_GUI_WINDOW_PAGE, ( int )side->count + 1 );
+   panel = s_objectHandle( ctx, page );
+   x_itemPutC( &empty, "" );
+   if( panel == NULL || !IsWindow( panel ) )
+   {
+      x_xfree( title );
+      x_guiControlDestroy( actions );
+      return 0;
+   }
+
+   if( !x_guiToolbarAdd( ctx, side->activity, &empty, x_paritem( ctx, 2 ), toolTip, x_paritem( ctx, 4 ), 0 ) )
+   {
+      x_xfree( title );
+      x_guiControlDestroy( actions );
+      x_guiDestroy( panel );
+      return 0;
+   }
+
+   side->pages = ( X_GUI_SIDEPAGE * )x_xrealloc( side->pages, ( side->count + 1 ) * sizeof( X_GUI_SIDEPAGE ) );
+   side->pages[side->count] = ( X_GUI_SIDEPAGE ){ panel, actions, title };
+   ++side->count;
+   x_callbackEnterDll();
+   s_sidebarLayout( sidebar );
+   x_callbackLeaveDll();
+   x_callbackRaisePending();
+
+   return ( int )side->count;
+}
+
+/* Return the panel of page nPage */
+void x_guiSidebarPanel( X_CALL_CTX *ctx, HWND sidebar, int page )
+{
+   const X_GUI_SIDEBAR *side = s_sidebarOf( sidebar );
+   const X_ITEM *object = NULL;
+
+   if( page >= 1 && ( size_t )page <= side->count )
+      object = ( const X_ITEM * )GetWindowLongPtrW( side->pages[page - 1].panel, GWLP_USERDATA );
+
+   if( object == NULL )
+      x_guiRaise( ctx, "GUI_SIDEBAR:PANEL" );
+   else
+      x_itemReturn( ctx, object );
+}
+
+/* Add a button with a picture: to the bottom of the strip for page 0, otherwise to the header of the page; returns
+   its number on its bar, 0 with an error raised */
+int x_guiSidebarAddButton( X_CALL_CTX *ctx, HWND sidebar, int page, const X_ITEM *bitmap, const X_ITEM *toolTip )
+{
+   const X_GUI_SIDEBAR *side = s_sidebarOf( sidebar );
+   X_ITEM empty __attribute__( ( cleanup( x_itemClear ) ) ) = X_ITEM_NIL_INIT;
+   HWND toolbar;
+   int button;
+
+   if( page < 0 || ( size_t )page > side->count )
+   {
+      x_guiRaise( ctx, "GUI_SIDEBAR:ADDACTION" );
+      return 0;
+   }
+
+   toolbar = IIF( page == 0, side->buttons, side->pages[page - 1].actions );
+   x_itemPutC( &empty, "" );
+   button = x_guiToolbarAdd( ctx, toolbar, &empty, bitmap, toolTip, NULL, 0 );
+   if( button != 0 )
+   {
+      x_callbackEnterDll();
+      s_sidebarLayout( sidebar );
+      x_callbackLeaveDll();
+      x_callbackRaisePending();
+   }
+
+   return button;
+}
+
+/* The number of the shown page, 0 when the panel is hidden */
+int x_guiSidebarPage( HWND sidebar )
+{
+   return s_sidebarOf( sidebar )->page;
+}
+
+/* Show page nPage, 0 hides the panel */
+void x_guiSidebarSelect( X_CALL_CTX *ctx, HWND sidebar, int page )
+{
+   X_GUI_SIDEBAR *side = s_sidebarOf( sidebar );
+
+   if( page < 0 || ( size_t )page > side->count )
+   {
+      x_guiRaise( ctx, "GUI_SIDEBAR:PAGE" );
+      return;
+   }
+
+   x_callbackEnterDll();
+   s_sidebarShow( sidebar, side, page );
+   x_callbackLeaveDll();
+   x_callbackRaisePending();
+}
+
+/* The width of the panel at 96 DPI */
+int x_guiSidebarWidth( HWND sidebar )
+{
+   return s_sidebarOf( sidebar )->width;
+}
+
+/* Set the width of the panel at 96 DPI, not less than the smallest one */
+void x_guiSidebarSetWidth( HWND sidebar, int width )
+{
+   X_GUI_SIDEBAR *side = s_sidebarOf( sidebar );
+
+   side->width = IIF( width < X_GUI_SIDEBAR_MINWIDTH, X_GUI_SIDEBAR_MINWIDTH, width );
+   x_callbackEnterDll();
+   s_sidebarResize( sidebar );
+   x_callbackLeaveDll();
+   x_callbackRaisePending();
+}
+
+/* Return a color of a sidebar, NIL for the system color */
+void x_guiSidebarColor( X_CALL_CTX *ctx, X_GUI_SIDEBAR_COLOR part )
+{
+   HWND sidebar = x_guiSelfHandle( ctx, "GUI_SIDEBAR:COLOR" );
+   const X_GUI_SIDEBAR *side = IIF( sidebar != NULL, s_sidebarOf( sidebar ), NULL );
+
+   if( side != NULL && side->colors[part] >= 0 )
+      x_retni( ctx, side->colors[part] );
+}
+
+/* Set a color of a sidebar, NIL for the system color */
+void x_guiSidebarSetColor( X_CALL_CTX *ctx, X_GUI_SIDEBAR_COLOR part )
+{
+   HWND sidebar = x_guiSelfHandle( ctx, "GUI_SIDEBAR:COLOR" );
+   X_GUI_SIDEBAR *side = IIF( sidebar != NULL, s_sidebarOf( sidebar ), NULL );
+
+   if( side == NULL )
+      return;
+
+   if( !X_ISNIL( ctx, 1 ) && ( !X_ISNUM( ctx, 1 ) || x_parnint( ctx, 1 ) < 0 || x_parnint( ctx, 1 ) > 0xFFFFFF ) )
+   {
+      x_guiRaise( ctx, "GUI_SIDEBAR:COLOR" );
+      return;
+   }
+
+   side->colors[part] = IIF( X_ISNIL( ctx, 1 ), -1, ( int )x_parnint( ctx, 1 ) );
+   RedrawWindow( sidebar, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN );
    x_itemReturn( ctx, x_paritem( ctx, 1 ) );
 }
 
