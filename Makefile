@@ -2,7 +2,7 @@ ROOT := .
 include $(ROOT)/make/common.mk
 
 ifeq ($(HOST_PLATFORM),win)
-USER_LIBS := gtwvt gtsdl3 gtglfw rdd tui gui mytiff xml json zlib openssl xades curl hpdf qrcode svg
+USER_LIBS := gtwvt gtsdl3 gtglfw rdd tui gui webgui mytiff xml json zlib openssl xades curl hpdf qrcode svg
 # make dynamic builds these also as DLLs, so a program and its modules share one copy of their state
 SHARED_USER_LIBS := rdd
 PREFIX ?= $(MINGW_PREFIX)
