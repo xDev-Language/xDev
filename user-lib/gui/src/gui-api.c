@@ -2815,15 +2815,17 @@ X_FUNC_STATIC( GUI_SIDEBAR_NEW )
 
 // Add a page: its PNG or BMP picture on the strip and a panel for its controls under the header with cTitle;
 // a click on the picture shows the panel, a click on the picture of the shown page hides it; cToolTip is the tip
-// of the picture (cTitle without it), cShortcut is written as in gui_Menu; returns the number of the page,
-// counted from 1
-// oSidebar:Add( cTitle, cBitmap, [cToolTip], [cShortcut] ) --> nPage
+// of the picture (cTitle without it), cShortcut is written as in gui_Menu; with oMenu the panel shows the items
+// of the gui_Menu one under another: a click on a command runs it, a click on a drop-down menu opens it at the
+// right; returns the number of the page, counted from 1
+// oSidebar:Add( cTitle, cBitmap, [cToolTip], [cShortcut], [oMenu] ) --> nPage
 X_FUNC_STATIC( GUI_SIDEBAR_ADD )
 {
    X_ITEM page __attribute__( ( cleanup( x_itemClear ) ) ) = X_ITEM_NIL_INIT;
    X_ITEM blocks __attribute__( ( cleanup( x_itemClear ) ) ) = X_ITEM_NIL_INIT;
    HWND window = x_guiSelfHandle( ctx, "GUI_SIDEBAR:ADD" );
    X_ITEM *actions = x_objDataSlot( ctx, 1 );
+   HMENU menu = NULL;
    int number, valid;
 
    if( window == NULL || actions == NULL || !X_IS_ARRAY( actions ) )
@@ -2836,10 +2838,17 @@ X_FUNC_STATIC( GUI_SIDEBAR_ADD )
       return;
    }
 
+   if( !X_ISNIL( ctx, 5 ) )
+   {
+      menu = x_guiObjectMenu( ctx, x_paritem( ctx, 5 ), "GUI_SIDEBAR:ADD" );
+      if( menu == NULL )
+         return;
+   }
+
    if( !x_objCreate( ctx, &page, x_clsRequire( "GUI_PANEL", GUI_PANEL ) ) )
       return;
 
-   number = x_guiSidebarAdd( ctx, window, &page );
+   number = x_guiSidebarAdd( ctx, window, &page, menu );
    if( number != 0 )
    {
       x_arrayNew( &blocks, 0 );

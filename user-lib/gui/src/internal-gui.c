@@ -102,14 +102,6 @@ static const X_GUI_KEYNAME s_keyNames[] = {
    { "DOWN", VK_DOWN, "Down" }, { "LEFT", VK_LEFT, "Left" }, { "RIGHT", VK_RIGHT, "Right" }
 };
 
-/* A running timer and its xDev object */
-typedef struct
-{
-   HWND window;
-   UINT_PTR id;
-   X_ITEM *timer;
-} X_GUI_TIMER;
-
 /* Side of the parent a toolbar stands at; a bar of a sidebar is placed by the sidebar */
 typedef enum
 {
@@ -150,6 +142,14 @@ enum
    X_GUI_SIDEBAR_MINWIDTH = 170,
    X_GUI_SIDEBAR_REST = 100,
    X_GUI_SIDEBAR_PALE = 150
+};
+
+/* Colors of a sidebar as 0xRRGGBB: the strip of pictures without barBackground and the line of one pixel at the
+   right edge of the strip */
+enum
+{
+   X_GUI_SIDEBAR_BAR = 0x181818,
+   X_GUI_SIDEBAR_BORDER = 0x2B2B2B
 };
 
 /* A page of a sidebar: its panel, the bar of its actions in the header and its title */
@@ -305,10 +305,6 @@ static int s_menuId = X_GUI_MENU_FIRST;
 static X_GUI_ACTION *s_actions;
 static size_t s_actionCount;
 static size_t s_actionCapacity;
-static X_GUI_TIMER *s_timers;
-static size_t s_timerCount;
-static size_t s_timerCapacity;
-static UINT_PTR s_timerId;
 static int s_commonControls;
 static int s_quiet;
 static int s_validating;
@@ -589,7 +585,7 @@ static LRESULT s_menuChar( HMENU menu, wchar_t key );
    "C GUI_SIDEBAR GUI_WINDOW\n" \
    "M DATA ONCHANGE 1 CODEBLOCK -\n" \
    "M METHOD NEW 1 ANY - PARENT\n" \
-   "M METHOD ADD 1 ANY - TITLE BITMAP TOOLTIP SHORTCUT\n" \
+   "M METHOD ADD 1 ANY - TITLE BITMAP TOOLTIP SHORTCUT MENU\n" \
    "M METHOD PANEL 1 ANY - PAGE\n" \
    "M METHOD ADDACTION 1 ANY - PAGE BITMAP ACTION TOOLTIP\n" \
    "M METHOD ADDBUTTON 1 ANY - BITMAP ACTION TOOLTIP\n" \
@@ -833,13 +829,13 @@ void x_guiEvent( X_CALL_CTX *ctx, size_t slot )
    --------------------------------------------------------------------------------------------- */
 
 /* A size at 96 DPI scaled to dpi */
-static int s_scale( int value, UINT dpi )
+int x_guiScale( int value, UINT dpi )
 {
    return MulDiv( value, ( int )dpi, USER_DEFAULT_SCREEN_DPI );
 }
 
 /* The system message font for dpi, made once for each DPI */
-static HFONT s_font( UINT dpi )
+HFONT x_guiFont( UINT dpi )
 {
    NONCLIENTMETRICSW metrics;
    HFONT font = NULL;
@@ -1311,7 +1307,7 @@ static HFONT s_ownFontCreate( const X_GUI_OWNFONT *own, UINT dpi )
    if( lstrcmpiW( own->name, s_xfontName ) == 0 && s_xfontReady() )
    {
       if( own->size == 0 )
-         font.lfHeight = -s_scale( X_FONT9X18_HEIGHT, dpi );
+         font.lfHeight = -x_guiScale( X_FONT9X18_HEIGHT, dpi );
 
       font.lfWeight = FW_NORMAL;
       font.lfQuality = NONANTIALIASED_QUALITY;
@@ -1328,13 +1324,13 @@ static HFONT s_fontOf( HWND window, UINT dpi )
    HFONT font;
 
    if( own == NULL )
-      return s_font( dpi );
+      return x_guiFont( dpi );
 
    if( own->font == NULL || own->dpi != dpi )
    {
       font = s_ownFontCreate( own, dpi );
       if( font == NULL )
-         return s_font( dpi );
+         return x_guiFont( dpi );
 
       if( own->font != NULL )
          DeleteObject( own->font );
@@ -1491,8 +1487,8 @@ static void s_toolbarInit( HWND toolbar )
    /* A button with a menu shows an arrow beside its text */
    SendMessageW( toolbar, TB_SETEXTENDEDSTYLE, 0, TBSTYLE_EX_DRAWDDARROWS );
    /* Larger buttons of one width, so they stand in an even row */
-   SendMessageW( toolbar, TB_SETPADDING, 0, MAKELPARAM( s_scale( 16, dpi ), s_scale( 14, dpi ) ) );
-   SendMessageW( toolbar, TB_SETBUTTONWIDTH, 0, MAKELPARAM( s_scale( 110, dpi ), s_scale( 200, dpi ) ) );
+   SendMessageW( toolbar, TB_SETPADDING, 0, MAKELPARAM( x_guiScale( 16, dpi ), x_guiScale( 14, dpi ) ) );
+   SendMessageW( toolbar, TB_SETBUTTONWIDTH, 0, MAKELPARAM( x_guiScale( 110, dpi ), x_guiScale( 200, dpi ) ) );
    SetPropW( toolbar, s_toolbarProperty, bar );
 }
 
@@ -1576,7 +1572,7 @@ static void s_statusLayout( HWND status )
    for( i = 0; i < parts->count; ++i )
    {
       if( parts->widths[i] > 0 )
-         fixed += s_scale( parts->widths[i], dpi );
+         fixed += x_guiScale( parts->widths[i], dpi );
       else
          ++shared;
    }
@@ -1585,7 +1581,7 @@ static void s_statusLayout( HWND status )
    for( i = 0; i < parts->count; ++i )
    {
       if( parts->widths[i] > 0 )
-         right += s_scale( parts->widths[i], dpi );
+         right += x_guiScale( parts->widths[i], dpi );
       else if( client.right > fixed )
          right += ( client.right - fixed ) / shared;
 
@@ -1608,8 +1604,8 @@ static void s_statusPaint( HWND status, const X_GUI_STATUS *parts )
    HGDIOBJ old = SelectObject( dc, IIF( font != NULL, ( HGDIOBJ )font, GetStockObject( DEFAULT_GUI_FONT ) ) );
    COLORREF text = GetSysColor( COLOR_BTNTEXT );
    int count = ( int )SendMessageW( status, SB_GETPARTS, 0, 0 );
-   int step = s_scale( 4, dpi );
-   int size = s_scale( 2, dpi );
+   int step = x_guiScale( 4, dpi );
+   int size = x_guiScale( 2, dpi );
    RECT client, part, mark;
    wchar_t *label;
    int i, j;
@@ -1766,7 +1762,7 @@ static int s_toolbarStretch( HWND toolbar, int width )
       }
    }
 
-   return HIWORD( SendMessageW( toolbar, TB_GETBUTTONSIZE, 0, 0 ) ) + s_scale( 4, GetDpiForWindow( toolbar ) );
+   return HIWORD( SendMessageW( toolbar, TB_GETBUTTONSIZE, 0, 0 ) ) + x_guiScale( 4, GetDpiForWindow( toolbar ) );
 }
 
 /* A toolbar at the top or at the bottom goes across the whole parent, a bar at the left or right side between
@@ -1794,7 +1790,7 @@ static void s_toolbarPlace( HWND toolbar )
       if( buttons.cx == 0 )
          buttons.cx = LOWORD( SendMessageW( toolbar, TB_GETBUTTONSIZE, 0, 0 ) );
 
-      thickness = buttons.cx + s_scale( 4, GetDpiForWindow( toolbar ) );
+      thickness = buttons.cx + x_guiScale( 4, GetDpiForWindow( toolbar ) );
    }
 
    switch( bar->side )
@@ -1933,7 +1929,7 @@ static LRESULT s_toolbarDraw( NMTBCUSTOMDRAW *draw )
       /* The button under the mouse or pressed is a field with a gap to the next one and a frame of the press
          color; other buttons lie on the bar without a frame */
       face = draw->nmcd.rc;
-      InflateRect( &face, -s_scale( 2, dpi ), -s_scale( 3, dpi ) );
+      InflateRect( &face, -x_guiScale( 2, dpi ), -x_guiScale( 3, dpi ) );
       SetDCBrushColor( draw->nmcd.hdc, s_toolbarColor( bar, X_GUI_COLOR_BACKGROUND ) );
       FillRect( draw->nmcd.hdc, &draw->nmcd.rc, ( HBRUSH )GetStockObject( DC_BRUSH ) );
       SetDCBrushColor( draw->nmcd.hdc, s_toolbarColor( bar, back ) );
@@ -2049,8 +2045,8 @@ static void s_groupPaint( HWND group, const X_GUI_PAINT *paint )
    COLORREF fore = GetSysColor( COLOR_WINDOWTEXT );
    HBRUSH back = IIF( paint->brush != NULL, paint->brush, GetSysColorBrush( COLOR_BTNFACE ) );
    HPEN pen;
-   int left = s_scale( 8, GetDpiForWindow( group ) );
-   int space = s_scale( 2, GetDpiForWindow( group ) );
+   int left = x_guiScale( 8, GetDpiForWindow( group ) );
+   int space = x_guiScale( 2, GetDpiForWindow( group ) );
    wchar_t text[256];
    int length = GetWindowTextW( group, text, 256 );
    RECT client, label;
@@ -2180,7 +2176,7 @@ static void s_dispatch( X_CALL_CTX *ctx )
 }
 
 /* Send an event to an xDev object with up to two numbers; an error in it ends the running message loop */
-static int s_notify( X_ITEM *object, const char *message, X_ITEM *result, int argc, const int64_t *values )
+int x_guiNotify( X_ITEM *object, const char *message, X_ITEM *result, int argc, const int64_t *values )
 {
    X_ITEM params[2] = { X_ITEM_NIL_INIT, X_ITEM_NIL_INIT };
    X_ARG args[3] = { { object, 0 } };
@@ -2296,7 +2292,7 @@ static void s_lineAfterPaint( HWND label, COLORREF color )
    else
       GetTextExtentPoint32W( dc, L"X", 1, &size );
 
-   x = IIF( len > 0, size.cx + s_scale( 4, GetDpiForWindow( label ) ), 0 );
+   x = IIF( len > 0, size.cx + x_guiScale( 4, GetDpiForWindow( label ) ), 0 );
    y = size.cy / 2;
    if( x < client.right )
    {
@@ -2430,103 +2426,6 @@ void x_guiControlDetach( X_CALL_CTX *ctx )
 }
 
 /* ---------------------------------------------------------------------------------------------
-   Timers
-   --------------------------------------------------------------------------------------------- */
-
-/* The running timer with the identifier, or NULL */
-static X_GUI_TIMER *s_timerFind( UINT_PTR id )
-{
-   size_t i;
-
-   for( i = 0; i < s_timerCount; ++i )
-   {
-      if( s_timers[i].id == id )
-         return &s_timers[i];
-   }
-
-   return NULL;
-}
-
-/* Stop a running timer and release its xDev object */
-static void s_timerRemove( size_t index )
-{
-   X_ITEM *timer = s_timers[index].timer;
-
-   KillTimer( s_timers[index].window, s_timers[index].id );
-   s_timers[index] = s_timers[--s_timerCount];
-   x_itemRelease( timer );
-}
-
-/* Stop the timers of a window, all timers for NULL */
-static void s_timersRelease( HWND window )
-{
-   size_t i = 0;
-
-   while( i < s_timerCount )
-   {
-      if( window == NULL || s_timers[i].window == window )
-         s_timerRemove( i );
-      else
-         ++i;
-   }
-}
-
-/* Start a timer or change its interval; returns its identifier, 0 with an error raised */
-UINT_PTR x_guiTimerStart( X_CALL_CTX *ctx, HWND window, UINT_PTR id, int interval )
-{
-   const X_GUI_TIMER *timer = IIF( id != 0, s_timerFind( id ), NULL );
-
-   if( interval <= 0 )
-   {
-      x_guiRaise( ctx, "GUI_TIMER:START" );
-      return 0;
-   }
-
-   if( id == 0 )
-      id = ++s_timerId;
-
-   if( SetTimer( window, id, ( UINT )interval, NULL ) == 0 )
-   {
-      x_guiRaiseWin32( ctx, "SetTimer", GetLastError() );
-      return 0;
-   }
-
-   if( timer == NULL )
-   {
-      if( s_timerCount == s_timerCapacity )
-      {
-         s_timerCapacity = IIF( s_timerCapacity == 0, ( size_t )8, s_timerCapacity * 2 );
-         s_timers = ( X_GUI_TIMER * )x_xrealloc( s_timers, s_timerCapacity * sizeof( X_GUI_TIMER ) );
-      }
-
-      s_timers[s_timerCount++] = ( X_GUI_TIMER ){ window, id, x_itemNew( ctx->self ) };
-   }
-
-   return id;
-}
-
-/* Stop a timer */
-void x_guiTimerStop( UINT_PTR id )
-{
-   size_t i;
-
-   for( i = 0; i < s_timerCount; ++i )
-   {
-      if( s_timers[i].id == id )
-      {
-         s_timerRemove( i );
-         return;
-      }
-   }
-}
-
-/* Whether a timer is running */
-int x_guiTimerActive( UINT_PTR id )
-{
-   return id != 0 && s_timerFind( id ) != NULL;
-}
-
-/* ---------------------------------------------------------------------------------------------
    Windows
    --------------------------------------------------------------------------------------------- */
 
@@ -2609,10 +2508,10 @@ static HMENU s_contextMenuOf( HWND window )
    X_ITEM handle __attribute__( ( cleanup( x_itemClear ) ) ) = X_ITEM_NIL_INIT;
    HMENU result;
 
-   if( object == NULL || !s_notify( object, "CONTEXTMENU", &menu, 0, NULL ) || !X_IS_OBJECT( &menu ) )
+   if( object == NULL || !x_guiNotify( object, "CONTEXTMENU", &menu, 0, NULL ) || !X_IS_OBJECT( &menu ) )
       return NULL;
 
-   if( !s_notify( &menu, "HANDLE", &handle, 0, NULL ) )
+   if( !x_guiNotify( &menu, "HANDLE", &handle, 0, NULL ) )
       return NULL;
 
    result = ( HMENU )x_itemGetPtr( &handle );
@@ -2678,12 +2577,12 @@ static void s_sidebarPlace( HWND sidebar )
 {
    const X_GUI_SIDEBAR *side = s_sidebarOf( sidebar );
    UINT dpi = GetDpiForWindow( sidebar );
-   int width = s_scale( X_GUI_SIDEBAR_STRIP, dpi );
+   int width = x_guiScale( X_GUI_SIDEBAR_STRIP, dpi );
    int height;
    RECT area;
 
    if( side->page > 0 )
-      width += s_scale( side->width + X_GUI_SIDEBAR_EDGE, dpi );
+      width += x_guiScale( side->width + X_GUI_SIDEBAR_EDGE, dpi );
 
    s_barsArea( GetParent( sidebar ), &area, 1 );
    height = IIF( area.bottom > area.top, area.bottom - area.top, 0 );
@@ -2753,7 +2652,7 @@ static LRESULT CALLBACK s_windowProc( HWND window, UINT message, WPARAM wParam, 
       }
 
       /* OnClose() returning .F. keeps the window open */
-      if( object == NULL || !s_notify( object, "ONCLOSE", &result, 0, NULL ) )
+      if( object == NULL || !x_guiNotify( object, "ONCLOSE", &result, 0, NULL ) )
          s_destroyWindow( window );
       else if( !X_IS_LOGICAL( &result ) || result.u.logical )
          s_destroyWindow( window );
@@ -2796,7 +2695,7 @@ static LRESULT CALLBACK s_windowProc( HWND window, UINT message, WPARAM wParam, 
       {
          values[0] = MulDiv( LOWORD( lParam ), USER_DEFAULT_SCREEN_DPI, ( int )GetDpiForWindow( window ) );
          values[1] = MulDiv( HIWORD( lParam ), USER_DEFAULT_SCREEN_DPI, ( int )GetDpiForWindow( window ) );
-         s_notify( object, "ONRESIZE", &result, 2, values );
+         x_guiNotify( object, "ONRESIZE", &result, 2, values );
       }
       return 0;
 
@@ -2819,7 +2718,7 @@ static LRESULT CALLBACK s_windowProc( HWND window, UINT message, WPARAM wParam, 
       if( object != NULL )
       {
          values[0] = ( int64_t )wParam;
-         s_notify( object, "ONKEY", &result, 1, values );
+         x_guiNotify( object, "ONKEY", &result, 1, values );
       }
       return 0;
 
@@ -2851,7 +2750,7 @@ static LRESULT CALLBACK s_windowProc( HWND window, UINT message, WPARAM wParam, 
       if( object != NULL )
       {
          values[0] = ( int64_t )( intptr_t )wParam;
-         s_notify( object, "__GUIMENUWHEN", &result, 1, values );
+         x_guiNotify( object, "__GUIMENUWHEN", &result, 1, values );
       }
       break;
 
@@ -2901,7 +2800,7 @@ static LRESULT CALLBACK s_windowProc( HWND window, UINT message, WPARAM wParam, 
          else if( header->code == TVN_SELCHANGEDW )
             values[1] = ( ( const NMTREEVIEWW * )lParam )->action != TVC_UNKNOWN;
 
-         s_notify( control, "__GUINOTIFY", &result, 2, values );
+         x_guiNotify( control, "__GUINOTIFY", &result, 2, values );
       }
       return 0;
    }
@@ -2915,7 +2814,7 @@ static LRESULT CALLBACK s_windowProc( HWND window, UINT message, WPARAM wParam, 
          if( control != NULL )
          {
             values[0] = LOWORD( wParam );
-            s_notify( control, "__GUICOMMAND", &result, 1, values );
+            x_guiNotify( control, "__GUICOMMAND", &result, 1, values );
          }
          return 0;
       }
@@ -2934,7 +2833,7 @@ static LRESULT CALLBACK s_windowProc( HWND window, UINT message, WPARAM wParam, 
          {
             values[0] = HIWORD( wParam );
             values[1] = LOWORD( wParam );
-            s_notify( control, "__GUICOMMAND", &result, 2, values );
+            x_guiNotify( control, "__GUICOMMAND", &result, 2, values );
          }
          return 0;
       }
@@ -2942,7 +2841,7 @@ static LRESULT CALLBACK s_windowProc( HWND window, UINT message, WPARAM wParam, 
       if( object != NULL && LOWORD( wParam ) >= X_GUI_MENU_FIRST )
       {
          values[0] = LOWORD( wParam );
-         s_notify( object, "ONMENU", &result, 1, values );
+         x_guiNotify( object, "ONMENU", &result, 1, values );
          return 0;
       }
 
@@ -2999,13 +2898,13 @@ static LRESULT CALLBACK s_windowProc( HWND window, UINT message, WPARAM wParam, 
 
    case WM_TIMER:
    {
-      const X_GUI_TIMER *timer = s_timerFind( ( UINT_PTR )wParam );
+      const X_GUI_TIMER *timer = x_guiTimerFind( ( UINT_PTR )wParam );
 
       if( timer != NULL && timer->window == window )
       {
          X_ITEM *target = x_itemNew( timer->timer );
 
-         s_notify( target, "__GUITIMER", &result, 0, NULL );
+         x_guiNotify( target, "__GUITIMER", &result, 0, NULL );
          x_itemRelease( target );
       }
       return 0;
@@ -3015,7 +2914,7 @@ static LRESULT CALLBACK s_windowProc( HWND window, UINT message, WPARAM wParam, 
       if( RemovePropW( window, s_modalProperty ) != NULL && GetWindow( window, GW_OWNER ) != NULL )
          EnableWindow( GetWindow( window, GW_OWNER ), TRUE );
 
-      s_timersRelease( window );
+      x_guiTimersRelease( window );
       EnumChildWindows( window, s_detachChild, 0 );
       if( window == s_mainWindow )
       {
@@ -3074,7 +2973,7 @@ static BOOL s_registerWindowClass( HINSTANCE instance )
 /* The frame of a window with a client area of width x height at 96 DPI, for dpi */
 static void s_frameForDpi( RECT *frame, int width, int height, UINT dpi, DWORD style, DWORD exStyle )
 {
-   *frame = ( RECT ){ 0, 0, s_scale( width, dpi ), s_scale( height, dpi ) };
+   *frame = ( RECT ){ 0, 0, x_guiScale( width, dpi ), x_guiScale( height, dpi ) };
    AdjustWindowRectExForDpi( frame, style, FALSE, exStyle, dpi );
 }
 
@@ -3198,8 +3097,8 @@ void x_guiPanelNew( X_CALL_CTX *ctx )
    }
    else
    {
-      x = s_scale( x_parnidef( ctx, 2, 0 ), dpi );
-      y = s_scale( x_parnidef( ctx, 3, 0 ), dpi );
+      x = x_guiScale( x_parnidef( ctx, 2, 0 ), dpi );
+      y = x_guiScale( x_parnidef( ctx, 3, 0 ), dpi );
       SetWindowPos( panel, NULL, x, y, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE );
    }
 
@@ -3473,9 +3372,9 @@ void x_guiSetClientSize( X_CALL_CTX *ctx, HWND window, X_GUI_BOUND part, int val
 
    GetClientRect( window, &client );
    if( part == X_GUI_HEIGHT )
-      client.bottom = s_scale( value, dpi );
+      client.bottom = x_guiScale( value, dpi );
    else
-      client.right = s_scale( value, dpi );
+      client.right = x_guiScale( value, dpi );
 
    frame = ( RECT ){ 0, 0, client.right, client.bottom };
    style = ( DWORD )GetWindowLongPtrW( window, GWL_STYLE );
@@ -3635,7 +3534,7 @@ static int s_windowKey( const MSG *message )
             if( keys->keys[i] == ( UINT )message->wParam && keys->modifiers[i] == modifiers )
             {
                values[0] = ( int64_t )i + 1;
-               s_notify( object, "__GUIKEY", &result, 1, values );
+               x_guiNotify( object, "__GUIKEY", &result, 1, values );
                return 1;
             }
          }
@@ -4225,20 +4124,6 @@ static int s_isPopupMenu( HMENU menu )
    return GetMenuInfo( menu, &info ) && info.dwMenuData != 0;
 }
 
-/* Menus drawn in the extended style: a picture strip at the left of drop-down menus and a gradient under the
-   commands of the menu bar; the colors of the selection are those of Office XP */
-typedef struct
-{
-   wchar_t *text;
-   wchar_t *shortcut;
-   HIMAGELIST image;
-   int bar;
-   int separator;
-} X_GUI_MENUITEM;
-
-static int s_hasAlpha( const BITMAP *info );
-static COLORREF s_cornerColor( HBITMAP picture );
-
 /* Turn the extended style of menus on or off and set the size of their pictures; returns the previous style */
 int x_guiMenuStyle( int extended, int imageSize )
 {
@@ -4326,10 +4211,10 @@ static void s_menuDecorate( X_CALL_CTX *ctx, HMENU menu, const wchar_t *text, co
       item->image = ImageList_Create( size.bmWidth, size.bmHeight, ILC_COLOR32 | ILC_MASK, 1, 1 );
       if( item->image != NULL )
       {
-         if( s_hasAlpha( &size ) )
+         if( x_guiHasAlpha( &size ) )
             ImageList_Add( item->image, picture, NULL );
          else
-            ImageList_AddMasked( item->image, picture, s_cornerColor( picture ) );
+            ImageList_AddMasked( item->image, picture, x_guiCornerColor( picture ) );
       }
 
       DeleteObject( picture );
@@ -4344,7 +4229,7 @@ static void s_menuDecorate( X_CALL_CTX *ctx, HMENU menu, const wchar_t *text, co
 /* Width of the picture strip of drop-down menus */
 static int s_menuStrip( UINT dpi )
 {
-   return s_scale( s_menuImageSize + 10, dpi );
+   return x_guiScale( s_menuImageSize + 10, dpi );
 }
 
 /* WM_MEASUREITEM: the size of a menu item drawn in the extended style */
@@ -4360,7 +4245,7 @@ static void s_menuMeasure( HWND window, MEASUREITEMSTRUCT *measure )
    if( item->separator )
    {
       measure->itemWidth = ( UINT )s_menuStrip( dpi );
-      measure->itemHeight = ( UINT )s_scale( 5, dpi );
+      measure->itemHeight = ( UINT )x_guiScale( 5, dpi );
       return;
    }
 
@@ -4374,15 +4259,15 @@ static void s_menuMeasure( HWND window, MEASUREITEMSTRUCT *measure )
    ReleaseDC( window, dc );
    if( item->bar )
    {
-      measure->itemWidth = ( UINT )( text.cx + s_scale( 8, dpi ) );
-      measure->itemHeight = ( UINT )( text.cy + s_scale( 4, dpi ) );
+      measure->itemWidth = ( UINT )( text.cx + x_guiScale( 8, dpi ) );
+      measure->itemHeight = ( UINT )( text.cy + x_guiScale( 4, dpi ) );
       return;
    }
 
-   shortcut = IIF( keys.cx > 0, s_scale( 32, dpi ) + keys.cx, 0 );
-   height = text.cy + s_scale( 8, dpi );
-   image = s_scale( s_menuImageSize + 6, dpi );
-   measure->itemWidth = ( UINT )( s_menuStrip( dpi ) + s_scale( 8, dpi ) + text.cx + shortcut + s_scale( 16, dpi ) );
+   shortcut = IIF( keys.cx > 0, x_guiScale( 32, dpi ) + keys.cx, 0 );
+   height = text.cy + x_guiScale( 8, dpi );
+   image = x_guiScale( s_menuImageSize + 6, dpi );
+   measure->itemWidth = ( UINT )( s_menuStrip( dpi ) + x_guiScale( 8, dpi ) + text.cx + shortcut + x_guiScale( 16, dpi ) );
    measure->itemHeight = ( UINT )IIF( image > height, image, height );
 }
 
@@ -4456,7 +4341,7 @@ static void s_menuDraw( HWND window, const DRAWITEMSTRUCT *draw )
    {
       int middle = ( area.top + area.bottom ) / 2;
 
-      SetRect( &part, area.left + strip + s_scale( 8, dpi ), middle, area.right, middle + 1 );
+      SetRect( &part, area.left + strip + x_guiScale( 8, dpi ), middle, area.right, middle + 1 );
       SetDCBrushColor( dc, RGB( 197, 194, 184 ) );
       FillRect( dc, &part, ( HBRUSH )GetStockObject( DC_BRUSH ) );
       SelectObject( dc, old );
@@ -4466,7 +4351,7 @@ static void s_menuDraw( HWND window, const DRAWITEMSTRUCT *draw )
    if( selected )
    {
       part = area;
-      InflateRect( &part, -s_scale( 1, dpi ), 0 );
+      InflateRect( &part, -x_guiScale( 1, dpi ), 0 );
       SetDCBrushColor( dc, RGB( 182, 189, 210 ) );
       FillRect( dc, &part, ( HBRUSH )GetStockObject( DC_BRUSH ) );
       SetDCBrushColor( dc, RGB( 10, 36, 106 ) );
@@ -4484,8 +4369,8 @@ static void s_menuDraw( HWND window, const DRAWITEMSTRUCT *draw )
 
    SetTextColor( dc, GetSysColor( IIF( grayed, COLOR_GRAYTEXT, COLOR_MENUTEXT ) ) );
    part = area;
-   part.left += strip + s_scale( 8, dpi );
-   part.right -= s_scale( 20, dpi );
+   part.left += strip + x_guiScale( 8, dpi );
+   part.right -= x_guiScale( 20, dpi );
    DrawTextW( dc, item->text, -1, &part, DT_SINGLELINE | DT_LEFT | DT_VCENTER | prefix );
    if( item->shortcut != NULL )
       DrawTextW( dc, item->shortcut, -1, &part, DT_SINGLELINE | DT_RIGHT | DT_VCENTER | DT_NOPREFIX );
@@ -5585,7 +5470,7 @@ static int s_editValid( HWND edit, HWND next, X_GUI_MASK *mask )
    s_validating = 1;
    if( mask != NULL && mask->type == 'D' && s_dateRead( edit, &filled ) == 0 && filled )
       valid = 0;
-   else if( object != NULL && s_notify( object, "__GUIVALID", &result, 0, NULL ) )
+   else if( object != NULL && x_guiNotify( object, "__GUIVALID", &result, 0, NULL ) )
       valid = !X_IS_LOGICAL( &result ) || result.u.logical;
 
    s_validating = 0;
@@ -5637,7 +5522,7 @@ static void s_getFit( HWND edit, int focused )
       return;
 
    dpi = GetDpiForWindow( edit );
-   margin = s_scale( 2, dpi );
+   margin = x_guiScale( 2, dpi );
    edge = GetSystemMetricsForDpi( SM_CXEDGE, dpi );
    dc = GetDC( edit );
    old = SelectObject( dc, s_fontOf( edit, dpi ) );
@@ -6415,7 +6300,7 @@ static int s_browseRowHeight( HWND browse )
    SelectObject( dc, old );
    ReleaseDC( browse, dc );
 
-   return metrics.tmHeight + s_scale( 6, dpi );
+   return metrics.tmHeight + x_guiScale( 6, dpi );
 }
 
 /* The number of rows below the heading, at least one */
@@ -6443,7 +6328,7 @@ static int s_browseColumnWidth( HWND browse, const X_GUI_GRID *grid, size_t colu
    SelectObject( dc, old );
    ReleaseDC( browse, dc );
 
-   return grid->columns[column].width * metrics.tmAveCharWidth + 2 * s_scale( 4, dpi );
+   return grid->columns[column].width * metrics.tmAveCharWidth + 2 * x_guiScale( 4, dpi );
 }
 
 /* The left side of a column in the whole width of the table */
@@ -6483,7 +6368,7 @@ static int64_t s_browseCall( HWND browse, int operation, int64_t argument, int *
    X_ITEM result __attribute__( ( cleanup( x_itemClear ) ) ) = X_ITEM_NIL_INIT;
    int64_t values[2] = { operation, argument };
 
-   *ok = *ok && object != NULL && s_notify( object, "__GUINAVIGATE", &result, 2, values );
+   *ok = *ok && object != NULL && x_guiNotify( object, "__GUINAVIGATE", &result, 2, values );
 
    return IIF( *ok && X_IS_NUMERIC( &result ), x_itemGetNInt( &result ), 0 );
 }
@@ -6496,7 +6381,7 @@ static void s_browseEvent( HWND browse, int event )
    int64_t values[1] = { event };
 
    if( object != NULL )
-      s_notify( object, "__GUIEVENT", &result, 1, values );
+      x_guiNotify( object, "__GUIEVENT", &result, 1, values );
 }
 
 /* The texts of the current record into row number row; the type of each value decides the alignment
@@ -6509,7 +6394,7 @@ static int s_browseRead( HWND browse, X_GUI_GRID *grid, int row )
    wchar_t **cell;
    const char *type, *value;
 
-   if( object == NULL || !s_notify( object, "__GUIROW", &result, 0, NULL ) || !X_IS_ARRAY( &result ) )
+   if( object == NULL || !x_guiNotify( object, "__GUIROW", &result, 0, NULL ) || !X_IS_ARRAY( &result ) )
       return 0;
 
    if( ( size_t )x_arrayLen( &result ) != grid->columnCount * 2 )
@@ -6793,7 +6678,7 @@ static void s_browseToggle( HWND browse, X_GUI_GRID *grid, int column )
       return;
 
    values[0] = column + 1;
-   s_notify( object, "__GUITOGGLE", &result, 1, values );
+   x_guiNotify( object, "__GUITOGGLE", &result, 1, values );
    s_browseRead( browse, grid, grid->rowPos );
    InvalidateRect( browse, NULL, FALSE );
 }
@@ -6805,7 +6690,7 @@ static void s_browsePaint( HWND browse, X_GUI_GRID *grid )
    HDC dc = BeginPaint( browse, &state );
    UINT dpi = GetDpiForWindow( browse );
    int height = s_browseRowHeight( browse );
-   int padding = s_scale( 4, dpi );
+   int padding = x_guiScale( 4, dpi );
    int focused = GetFocus() == browse;
    static const UINT formats[] = { DT_LEFT, DT_RIGHT, DT_CENTER };
    RECT client, area, text;
@@ -7134,10 +7019,10 @@ static LRESULT CALLBACK s_browseProc( HWND browse, UINT message, WPARAM wParam, 
       switch( LOWORD( wParam ) )
       {
       case SB_LINELEFT:
-         s_browseScroll( browse, grid, grid->offset - s_scale( 20, GetDpiForWindow( browse ) ) );
+         s_browseScroll( browse, grid, grid->offset - x_guiScale( 20, GetDpiForWindow( browse ) ) );
          break;
       case SB_LINERIGHT:
-         s_browseScroll( browse, grid, grid->offset + s_scale( 20, GetDpiForWindow( browse ) ) );
+         s_browseScroll( browse, grid, grid->offset + x_guiScale( 20, GetDpiForWindow( browse ) ) );
          break;
       case SB_PAGELEFT:
       case SB_PAGERIGHT:
@@ -7588,7 +7473,7 @@ void x_guiGetNew( X_CALL_CTX *ctx )
       return;
 
    dpi = GetDpiForWindow( edit );
-   margin = s_scale( 2, dpi );
+   margin = x_guiScale( 2, dpi );
    edge = GetSystemMetricsForDpi( SM_CXEDGE, dpi );
    SetPropW( edit, s_getProperty, ( HANDLE )1 );
    if( rows > 1 )
@@ -7622,7 +7507,7 @@ void x_guiGetNew( X_CALL_CTX *ctx )
    SelectObject( dc, old );
    ReleaseDC( edit, dc );
    width = IIF( chars > 0, chars, 10 ) * metrics.tmAveCharWidth + 2 * ( margin + edge ) + 1;
-   height = IIF( X_ISNUM( ctx, 5 ), s_scale( x_parni( ctx, 5 ), dpi ), metrics.tmHeight + 2 * edge + margin );
+   height = IIF( X_ISNUM( ctx, 5 ), x_guiScale( x_parni( ctx, 5 ), dpi ), metrics.tmHeight + 2 * edge + margin );
    SetWindowPos( edit, NULL, 0, 0, width, height, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE );
    x_guiReturnSelf( ctx );
 }
@@ -7646,7 +7531,7 @@ void x_guiSayNew( X_CALL_CTX *ctx )
       return;
 
    dpi = GetDpiForWindow( label );
-   margin = s_scale( 2, dpi );
+   margin = x_guiScale( 2, dpi );
    edge = GetSystemMetricsForDpi( SM_CXEDGE, dpi );
    memset( &own, 0, sizeof( own ) );
    lstrcpynW( own.name, s_xfontName, LF_FACESIZE );
@@ -7659,7 +7544,7 @@ void x_guiSayNew( X_CALL_CTX *ctx )
    DeleteObject( font );
    chars = IIF( X_ISNUM( ctx, 4 ), x_parni( ctx, 4 ), GetWindowTextLengthW( label ) );
    width = IIF( chars > 0, chars, 10 ) * metrics.tmAveCharWidth + 2 * ( margin + edge ) + 1;
-   height = IIF( X_ISNUM( ctx, 5 ), s_scale( x_parni( ctx, 5 ), dpi ), metrics.tmHeight + 2 * edge + margin );
+   height = IIF( X_ISNUM( ctx, 5 ), x_guiScale( x_parni( ctx, 5 ), dpi ), metrics.tmHeight + 2 * edge + margin );
    SetWindowPos( label, NULL, 0, 0, width, height, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE );
    x_guiReturnSelf( ctx );
 }
@@ -7897,10 +7782,10 @@ void x_guiControlCreate( X_CALL_CTX *ctx )
 
    dpi = GetDpiForWindow( parent );
    x_callbackEnterDll();
-   x = s_scale( x_parni( ctx, 4 ), dpi );
-   y = s_scale( x_parni( ctx, 5 ), dpi );
-   cx = s_scale( x_parni( ctx, 6 ), dpi );
-   cy = s_scale( x_parni( ctx, 7 ), dpi );
+   x = x_guiScale( x_parni( ctx, 4 ), dpi );
+   y = x_guiScale( x_parni( ctx, 5 ), dpi );
+   cx = x_guiScale( x_parni( ctx, 6 ), dpi );
+   cy = x_guiScale( x_parni( ctx, 7 ), dpi );
    id = ( HMENU )( INT_PTR )s_controlId;
    control = CreateWindowExW( exStyle, className, text, style, x, y, cx, cy, parent, id, instance, NULL );
    error = GetLastError();
@@ -7908,7 +7793,7 @@ void x_guiControlCreate( X_CALL_CTX *ctx )
    if( control != NULL )
    {
       SetWindowLongPtrW( control, GWLP_USERDATA, ( LONG_PTR )x_itemNew( ctx->self ) );
-      SendMessageW( control, WM_SETFONT, ( WPARAM )s_font( dpi ), FALSE );
+      SendMessageW( control, WM_SETFONT, ( WPARAM )x_guiFont( dpi ), FALSE );
       if( kind == X_GUI_LISTVIEW )
          SendMessageW( control, LVM_SETEXTENDEDLISTVIEWSTYLE, listStyle, listStyle );
       else if( kind == X_GUI_TOOLBAR )
@@ -8166,7 +8051,7 @@ int x_guiBounds( HWND window, X_GUI_BOUND part )
 /* Set the position or the size of a control, given at 96 DPI; its anchor follows */
 void x_guiSetBounds( X_CALL_CTX *ctx, HWND window, X_GUI_BOUND part, int value )
 {
-   const int scaled = s_scale( value, GetDpiForWindow( window ) );
+   const int scaled = x_guiScale( value, GetDpiForWindow( window ) );
    X_GUI_ANCHOR *anchor = ( X_GUI_ANCHOR * )GetPropW( window, s_anchorProperty );
    RECT frame;
    int x, y, width, height;
@@ -8195,7 +8080,7 @@ void x_guiSetBounds( X_CALL_CTX *ctx, HWND window, X_GUI_BOUND part, int value )
 }
 
 /* Send a message to a control between x_callbackEnterDll() and x_callbackLeaveDll() */
-static LRESULT s_send( HWND window, UINT message, WPARAM wParam, LPARAM lParam )
+LRESULT x_guiSend( HWND window, UINT message, WPARAM wParam, LPARAM lParam )
 {
    LRESULT result;
 
@@ -8261,7 +8146,7 @@ int x_guiReadOnly( HWND window )
 /* Make an edit field read-only or editable */
 void x_guiSetReadOnly( HWND window, int readOnly )
 {
-   s_send( window, EM_SETREADONLY, ( WPARAM )IIF( readOnly, TRUE, FALSE ), 0 );
+   x_guiSend( window, EM_SETREADONLY, ( WPARAM )IIF( readOnly, TRUE, FALSE ), 0 );
 }
 
 /* The most characters an edit field takes */
@@ -8273,13 +8158,13 @@ int x_guiMaxLength( HWND window )
 /* Set the most characters an edit field takes */
 void x_guiSetMaxLength( HWND window, int length )
 {
-   s_send( window, EM_SETLIMITTEXT, ( WPARAM )length, 0 );
+   x_guiSend( window, EM_SETLIMITTEXT, ( WPARAM )length, 0 );
 }
 
 /* Whether a check box or a radio button is checked */
 int x_guiGetCheck( HWND window )
 {
-   return s_send( window, BM_GETCHECK, 0, 0 ) == BST_CHECKED;
+   return x_guiSend( window, BM_GETCHECK, 0, 0 ) == BST_CHECKED;
 }
 
 /* Check or clear a check box or a radio button; a checked radio button clears the others of its group */
@@ -8294,13 +8179,13 @@ void x_guiSetCheck( HWND window, int checked )
       while( sibling != NULL && sibling != window )
       {
          if( s_isRadio( sibling ) )
-            s_send( sibling, BM_SETCHECK, BST_UNCHECKED, 0 );
+            x_guiSend( sibling, BM_SETCHECK, BST_UNCHECKED, 0 );
 
          sibling = GetNextDlgGroupItem( parent, sibling, FALSE );
       }
    }
 
-   s_send( window, BM_SETCHECK, IIF( checked, BST_CHECKED, BST_UNCHECKED ), 0 );
+   x_guiSend( window, BM_SETCHECK, IIF( checked, BST_CHECKED, BST_UNCHECKED ), 0 );
 }
 
 /* Whether a button is the default or, with cancel, the cancel button of its window */
@@ -8317,7 +8202,7 @@ void x_guiSetButtonRole( HWND button, int cancel, int enabled )
    HWND previous = ( HWND )GetPropW( parent, property );
 
    if( !cancel && previous != NULL && IsWindow( previous ) && ( previous != button || !enabled ) )
-      s_send( previous, BM_SETSTYLE, BS_PUSHBUTTON, TRUE );
+      x_guiSend( previous, BM_SETSTYLE, BS_PUSHBUTTON, TRUE );
 
    if( enabled )
       SetPropW( parent, property, button );
@@ -8325,7 +8210,7 @@ void x_guiSetButtonRole( HWND button, int cancel, int enabled )
       RemovePropW( parent, property );
 
    if( !cancel && enabled )
-      s_send( button, BM_SETSTYLE, BS_DEFPUSHBUTTON, TRUE );
+      x_guiSend( button, BM_SETSTYLE, BS_DEFPUSHBUTTON, TRUE );
 }
 
 /* ---------------------------------------------------------------------------------------------
@@ -8347,7 +8232,7 @@ int x_guiListAdd( X_CALL_CTX *ctx, HWND window, const X_ITEM *text )
    if( wide == NULL )
       return 0;
 
-   index = s_send( window, s_listMessages( window )->add, 0, ( LPARAM )wide );
+   index = x_guiSend( window, s_listMessages( window )->add, 0, ( LPARAM )wide );
    x_xfree( wide );
    if( index < 0 )
    {
@@ -8361,7 +8246,7 @@ int x_guiListAdd( X_CALL_CTX *ctx, HWND window, const X_ITEM *text )
 /* Remove all items of a list */
 void x_guiListClear( HWND window )
 {
-   s_send( window, s_listMessages( window )->reset, 0, 0 );
+   x_guiSend( window, s_listMessages( window )->reset, 0, 0 );
 }
 
 /* The number of items of a list */
@@ -8382,7 +8267,7 @@ void x_guiListSetSelected( X_CALL_CTX *ctx, HWND window, int index )
    if( index < 0 || index > x_guiListCount( window ) )
       x_guiRaise( ctx, "GUI_LISTBOX:SELECTED" );
    else
-      s_send( window, s_listMessages( window )->setSelection, ( WPARAM )( index - 1 ), 0 );
+      x_guiSend( window, s_listMessages( window )->setSelection, ( WPARAM )( index - 1 ), 0 );
 }
 
 /* Return the text of an item of a list */
@@ -8421,7 +8306,7 @@ int x_guiProgressValue( HWND window )
 /* Set the position of a progress bar */
 void x_guiProgressSetValue( HWND window, int value )
 {
-   s_send( window, PBM_SETPOS, ( WPARAM )value, 0 );
+   x_guiSend( window, PBM_SETPOS, ( WPARAM )value, 0 );
 }
 
 /* The maximum of a progress bar */
@@ -8433,7 +8318,7 @@ int x_guiProgressMaximum( HWND window )
 /* Set the maximum of a progress bar */
 void x_guiProgressSetMaximum( HWND window, int maximum )
 {
-   s_send( window, PBM_SETRANGE32, 0, ( LPARAM )maximum );
+   x_guiSend( window, PBM_SETRANGE32, 0, ( LPARAM )maximum );
 }
 
 /* ---------------------------------------------------------------------------------------------
@@ -8466,7 +8351,7 @@ int x_guiDateSetValue( HWND window, long julian )
    time.wMonth = ( WORD )month;
    time.wDay = ( WORD )day;
 
-   return s_send( window, DTM_SETSYSTEMTIME, GDT_VALID, ( LPARAM )&time ) != 0;
+   return x_guiSend( window, DTM_SETSYSTEMTIME, GDT_VALID, ( LPARAM )&time ) != 0;
 }
 
 /* The position, the minimum or the maximum of a slider */
@@ -8482,7 +8367,7 @@ void x_guiSliderSet( HWND window, X_GUI_RANGE part, int value )
 {
    static const UINT messages[] = { TBM_SETPOS, TBM_SETRANGEMIN, TBM_SETRANGEMAX };
 
-   s_send( window, messages[part], TRUE, ( LPARAM )value );
+   x_guiSend( window, messages[part], TRUE, ( LPARAM )value );
 }
 
 /* ---------------------------------------------------------------------------------------------
@@ -8503,7 +8388,7 @@ void x_guiTabAddPage( X_CALL_CTX *ctx, HWND tab, const X_ITEM *title, X_ITEM *pa
    memset( &item, 0, sizeof( item ) );
    item.mask = TCIF_TEXT;
    item.pszText = text;
-   index = s_send( tab, TCM_INSERTITEMW, ( WPARAM )count, ( LPARAM )&item );
+   index = x_guiSend( tab, TCM_INSERTITEMW, ( WPARAM )count, ( LPARAM )&item );
    x_xfree( text );
    if( index < 0 )
    {
@@ -8563,7 +8448,7 @@ void x_guiTabSelect( X_CALL_CTX *ctx, HWND tab, int index )
       return;
    }
 
-   s_send( tab, TCM_SETCURSEL, ( WPARAM )( index - 1 ), 0 );
+   x_guiSend( tab, TCM_SETCURSEL, ( WPARAM )( index - 1 ), 0 );
    x_guiTabRefresh( tab );
 }
 
@@ -8606,9 +8491,9 @@ int x_guiListViewAddColumn( X_CALL_CTX *ctx, HWND window, const X_ITEM *title, i
    memset( &column, 0, sizeof( column ) );
    column.mask = LVCF_TEXT | LVCF_WIDTH | LVCF_FMT;
    column.fmt = formats[align];
-   column.cx = s_scale( width, GetDpiForWindow( window ) );
+   column.cx = x_guiScale( width, GetDpiForWindow( window ) );
    column.pszText = text;
-   index = s_send( window, LVM_INSERTCOLUMNW, ( WPARAM )x_guiListViewColumnCount( window ), ( LPARAM )&column );
+   index = x_guiSend( window, LVM_INSERTCOLUMNW, ( WPARAM )x_guiListViewColumnCount( window ), ( LPARAM )&column );
    x_xfree( text );
    if( index < 0 )
    {
@@ -8633,7 +8518,7 @@ static int s_listViewSetText( X_CALL_CTX *ctx, HWND window, int row, int column,
    memset( &item, 0, sizeof( item ) );
    item.iSubItem = column;
    item.pszText = text;
-   done = s_send( window, LVM_SETITEMTEXTW, ( WPARAM )row, ( LPARAM )&item );
+   done = x_guiSend( window, LVM_SETITEMTEXTW, ( WPARAM )row, ( LPARAM )&item );
    x_xfree( text );
 
    return done != 0;
@@ -8671,7 +8556,7 @@ int x_guiListViewAddRow( X_CALL_CTX *ctx, HWND window, const X_ITEM *values )
    item.mask = LVIF_TEXT;
    item.iItem = x_guiListViewCount( window );
    item.pszText = text;
-   index = s_send( window, LVM_INSERTITEMW, 0, ( LPARAM )&item );
+   index = x_guiSend( window, LVM_INSERTITEMW, 0, ( LPARAM )&item );
    x_xfree( text );
    if( index < 0 )
    {
@@ -8747,13 +8632,13 @@ void x_guiListViewDelete( X_CALL_CTX *ctx, HWND window, int row )
    if( row < 1 || row > x_guiListViewCount( window ) )
       x_guiRaise( ctx, "GUI_LISTVIEW:DELETE" );
    else
-      s_send( window, LVM_DELETEITEM, ( WPARAM )( row - 1 ), 0 );
+      x_guiSend( window, LVM_DELETEITEM, ( WPARAM )( row - 1 ), 0 );
 }
 
 /* Delete all rows */
 void x_guiListViewClear( HWND window )
 {
-   s_send( window, LVM_DELETEALLITEMS, 0, 0 );
+   x_guiSend( window, LVM_DELETEALLITEMS, 0, 0 );
 }
 
 /* The selected row, 0 for none */
@@ -8776,12 +8661,12 @@ void x_guiListViewSetSelected( X_CALL_CTX *ctx, HWND window, int row )
    memset( &item, 0, sizeof( item ) );
    item.stateMask = LVIS_SELECTED | LVIS_FOCUSED;
    s_quiet = 1;
-   s_send( window, LVM_SETITEMSTATE, ( WPARAM )-1, ( LPARAM )&item );
+   x_guiSend( window, LVM_SETITEMSTATE, ( WPARAM )-1, ( LPARAM )&item );
    if( row > 0 )
    {
       item.state = LVIS_SELECTED | LVIS_FOCUSED;
-      s_send( window, LVM_SETITEMSTATE, ( WPARAM )( row - 1 ), ( LPARAM )&item );
-      s_send( window, LVM_ENSUREVISIBLE, ( WPARAM )( row - 1 ), FALSE );
+      x_guiSend( window, LVM_SETITEMSTATE, ( WPARAM )( row - 1 ), ( LPARAM )&item );
+      x_guiSend( window, LVM_ENSUREVISIBLE, ( WPARAM )( row - 1 ), FALSE );
    }
 
    s_quiet = 0;
@@ -8826,7 +8711,7 @@ void x_guiTreeAdd( X_CALL_CTX *ctx, HWND window, const X_ITEM *text, const X_ITE
    insert.hInsertAfter = TVI_LAST;
    insert.item.mask = TVIF_TEXT;
    insert.item.pszText = wide;
-   added = ( HTREEITEM )s_send( window, TVM_INSERTITEMW, 0, ( LPARAM )&insert );
+   added = ( HTREEITEM )x_guiSend( window, TVM_INSERTITEMW, 0, ( LPARAM )&insert );
    x_xfree( wide );
    if( added == NULL )
       x_guiRaiseWin32( ctx, "TVM_INSERTITEMW", ERROR_NOT_ENOUGH_MEMORY );
@@ -8881,7 +8766,7 @@ void x_guiTreeSetText( X_CALL_CTX *ctx, HWND window, const X_ITEM *item, const X
    data.mask = TVIF_TEXT | TVIF_HANDLE;
    data.hItem = handle;
    data.pszText = wide;
-   done = s_send( window, TVM_SETITEMW, 0, ( LPARAM )&data );
+   done = x_guiSend( window, TVM_SETITEMW, 0, ( LPARAM )&data );
    x_xfree( wide );
    if( !done )
       x_guiRaise( ctx, "GUI_TREEVIEW:SETITEMTEXT" );
@@ -8893,7 +8778,7 @@ void x_guiTreeExpand( X_CALL_CTX *ctx, HWND window, const X_ITEM *item, int expa
    HTREEITEM handle = s_treeItem( ctx, item, IIF( expand, "GUI_TREEVIEW:EXPAND", "GUI_TREEVIEW:COLLAPSE" ) );
 
    if( handle != NULL )
-      s_send( window, TVM_EXPAND, IIF( expand, TVE_EXPAND, TVE_COLLAPSE ), ( LPARAM )handle );
+      x_guiSend( window, TVM_EXPAND, IIF( expand, TVE_EXPAND, TVE_COLLAPSE ), ( LPARAM )handle );
 }
 
 /* Return the selected item, NIL for none */
@@ -8917,14 +8802,14 @@ void x_guiTreeSelect( X_CALL_CTX *ctx, HWND window, const X_ITEM *item )
          return;
    }
 
-   if( !s_send( window, TVM_SELECTITEM, TVGN_CARET, ( LPARAM )handle ) && handle != NULL )
+   if( !x_guiSend( window, TVM_SELECTITEM, TVGN_CARET, ( LPARAM )handle ) && handle != NULL )
       x_guiRaise( ctx, "GUI_TREEVIEW:SELECTED" );
 }
 
 /* Delete all items */
 void x_guiTreeClear( HWND window )
 {
-   s_send( window, TVM_DELETEITEM, 0, ( LPARAM )TVI_ROOT );
+   x_guiSend( window, TVM_DELETEITEM, 0, ( LPARAM )TVI_ROOT );
 }
 
 /* The number of items */
@@ -8951,8 +8836,8 @@ static void s_toolbarDock( HWND toolbar, X_GUI_BAR *bar )
 
       style = ( style & ~TBSTYLE_LIST ) | CCS_VERT | TBSTYLE_WRAPABLE;
       SendMessageW( toolbar, TB_SETSTYLE, 0, ( LPARAM )style );
-      SendMessageW( toolbar, TB_SETPADDING, 0, MAKELPARAM( s_scale( 12, dpi ), s_scale( 12, dpi ) ) );
-      SendMessageW( toolbar, TB_SETBUTTONWIDTH, 0, MAKELPARAM( s_scale( 80, dpi ), s_scale( 120, dpi ) ) );
+      SendMessageW( toolbar, TB_SETPADDING, 0, MAKELPARAM( x_guiScale( 12, dpi ), x_guiScale( 12, dpi ) ) );
+      SendMessageW( toolbar, TB_SETBUTTONWIDTH, 0, MAKELPARAM( x_guiScale( 80, dpi ), x_guiScale( 120, dpi ) ) );
    }
 }
 
@@ -9012,7 +8897,7 @@ void x_guiToolbarNew( X_CALL_CTX *ctx )
 }
 
 /* A 32-bit picture with any alpha value keeps its own transparency */
-static int s_hasAlpha( const BITMAP *info )
+int x_guiHasAlpha( const BITMAP *info )
 {
    const BYTE *bits = ( const BYTE * )info->bmBits;
    size_t size, i;
@@ -9031,7 +8916,7 @@ static int s_hasAlpha( const BITMAP *info )
 }
 
 /* Without alpha the color of the top left pixel is transparent */
-static COLORREF s_cornerColor( HBITMAP picture )
+COLORREF x_guiCornerColor( HBITMAP picture )
 {
    HDC dc = CreateCompatibleDC( NULL );
    HGDIOBJ old = SelectObject( dc, picture );
@@ -9061,10 +8946,10 @@ static int s_toolbarImage( X_CALL_CTX *ctx, HWND toolbar, X_GUI_BAR *bar, const 
          SendMessageW( toolbar, TB_SETIMAGELIST, 0, ( LPARAM )bar->images );
    }
 
-   if( bar->images != NULL && s_hasAlpha( &info ) )
+   if( bar->images != NULL && x_guiHasAlpha( &info ) )
       image = ImageList_Add( bar->images, picture, NULL );
    else if( bar->images != NULL )
-      image = ImageList_AddMasked( bar->images, picture, s_cornerColor( picture ) );
+      image = ImageList_AddMasked( bar->images, picture, x_guiCornerColor( picture ) );
 
    DeleteObject( picture );
    if( image < 0 )
@@ -9231,12 +9116,12 @@ void x_guiToolbarSeparator( X_CALL_CTX *ctx, HWND toolbar )
    TBBUTTON button;
 
    memset( &button, 0, sizeof( button ) );
-   button.iBitmap = s_scale( 8, GetDpiForWindow( toolbar ) );
+   button.iBitmap = x_guiScale( 8, GetDpiForWindow( toolbar ) );
    button.fsStyle = BTNS_SEP;
    if( SendMessageW( toolbar, TB_GETSTYLE, 0, 0 ) & CCS_VERT )
       button.fsState = TBSTATE_WRAP;
 
-   if( !s_send( toolbar, TB_ADDBUTTONSW, 1, ( LPARAM )&button ) )
+   if( !x_guiSend( toolbar, TB_ADDBUTTONSW, 1, ( LPARAM )&button ) )
       x_guiRaiseWin32( ctx, "TB_ADDBUTTONSW", GetLastError() );
    else
       s_toolbarPlace( toolbar );
@@ -9334,7 +9219,7 @@ void x_guiToolbarSetColor( X_CALL_CTX *ctx, X_GUI_COLOR part )
    --------------------------------------------------------------------------------------------- */
 
 /* A color between two colors: amount of 255 parts of the second one */
-static COLORREF s_mix( COLORREF first, COLORREF second, int amount )
+COLORREF x_guiMix( COLORREF first, COLORREF second, int amount )
 {
    int red = GetRValue( first ) + ( GetRValue( second ) - GetRValue( first ) ) * amount / 255;
    int green = GetGValue( first ) + ( GetGValue( second ) - GetGValue( first ) ) * amount / 255;
@@ -9344,7 +9229,7 @@ static COLORREF s_mix( COLORREF first, COLORREF second, int amount )
 }
 
 /* The panel and its title have the colors of the sidebar window, otherwise those of the system */
-static void s_sidebarPanelColors( HWND sidebar, COLORREF *back, COLORREF *fore )
+void x_guiSidebarColors( HWND sidebar, COLORREF *back, COLORREF *fore )
 {
    const X_GUI_PAINT *paint = s_paintOf( sidebar );
 
@@ -9357,17 +9242,12 @@ static void s_sidebarPanelColors( HWND sidebar, COLORREF *back, COLORREF *fore )
       *fore = s_colorRef( paint->colors[X_GUI_COLOR_FOREGROUND] );
 }
 
-/* The strip of pictures has its own color, otherwise the color of the panel a shade towards its text */
-static COLORREF s_sidebarStripColor( HWND sidebar, const X_GUI_SIDEBAR *side )
+/* The strip of pictures has the color barBackground, otherwise X_GUI_SIDEBAR_BAR */
+static COLORREF s_sidebarStripColor( const X_GUI_SIDEBAR *side )
 {
-   COLORREF back, fore;
+   int bar = side->colors[X_GUI_SIDEBAR_COLOR_BAR];
 
-   if( side->colors[X_GUI_SIDEBAR_COLOR_BAR] >= 0 )
-      return s_colorRef( side->colors[X_GUI_SIDEBAR_COLOR_BAR] );
-
-   s_sidebarPanelColors( sidebar, &back, &fore );
-
-   return s_mix( back, fore, 16 );
+   return s_colorRef( IIF( bar >= 0, bar, X_GUI_SIDEBAR_BAR ) );
 }
 
 /* Whether a window is one of the bars of the sidebar */
@@ -9416,13 +9296,13 @@ static int s_sidebarButtons( HWND toolbar, int size )
 {
    const X_GUI_BAR *bar = s_toolbarOf( toolbar );
    UINT dpi = GetDpiForWindow( toolbar );
-   int length = s_scale( size, dpi );
+   int length = x_guiScale( size, dpi );
    int width = 0, height = 0, picture;
 
    if( bar != NULL && bar->images != NULL )
       ImageList_GetIconSize( bar->images, &width, &height );
 
-   picture = IIF( width > height, width, height ) + s_scale( 6, dpi );
+   picture = IIF( width > height, width, height ) + x_guiScale( 6, dpi );
    length = IIF( picture > length, picture, length );
    SendMessageW( toolbar, TB_SETBUTTONWIDTH, 0, MAKELPARAM( length, length ) );
    SendMessageW( toolbar, TB_SETBUTTONSIZE, 0, MAKELPARAM( length, length ) );
@@ -9438,9 +9318,9 @@ static void s_sidebarLayout( HWND sidebar )
    const X_GUI_SIDEBAR *side = s_sidebarOf( sidebar );
    UINT dpi = GetDpiForWindow( sidebar );
    UINT flags = SWP_NOZORDER | SWP_NOACTIVATE;
-   int strip = s_scale( X_GUI_SIDEBAR_STRIP, dpi );
-   int header = s_scale( X_GUI_SIDEBAR_HEADER, dpi );
-   int width = s_scale( side->width, dpi );
+   int strip = x_guiScale( X_GUI_SIDEBAR_STRIP, dpi );
+   int header = x_guiScale( X_GUI_SIDEBAR_HEADER, dpi );
+   int width = x_guiScale( side->width, dpi );
    int size, count, top, x, y, height;
    RECT client;
    size_t i;
@@ -9449,9 +9329,9 @@ static void s_sidebarLayout( HWND sidebar )
    size = s_sidebarButtons( side->buttons, X_GUI_SIDEBAR_STRIP );
    count = ( int )SendMessageW( side->buttons, TB_BUTTONCOUNT, 0, 0 );
    top = IIF( client.bottom > size * count, client.bottom - size * count, 0 );
-   SetWindowPos( side->buttons, NULL, 0, top, strip, size * count, flags );
+   SetWindowPos( side->buttons, NULL, 0, top, strip - 1, size * count, flags );
    s_sidebarButtons( side->activity, X_GUI_SIDEBAR_STRIP );
-   SetWindowPos( side->activity, NULL, 0, 0, strip, top, flags );
+   SetWindowPos( side->activity, NULL, 0, 0, strip - 1, top, flags );
 
    height = IIF( client.bottom > header, client.bottom - header, 0 );
    for( i = 0; i < side->count; ++i )
@@ -9461,7 +9341,7 @@ static void s_sidebarLayout( HWND sidebar )
 
       size = s_sidebarButtons( page->actions, X_GUI_SIDEBAR_ACTION );
       count = ( int )SendMessageW( page->actions, TB_BUTTONCOUNT, 0, 0 );
-      x = strip + width - s_scale( X_GUI_SIDEBAR_GAP, dpi ) - size * count;
+      x = strip + width - x_guiScale( X_GUI_SIDEBAR_GAP, dpi ) - size * count;
       y = ( header - size ) / 2;
       SetWindowPos( page->actions, NULL, x, y, size * count, size, flags | show );
       SetWindowPos( page->panel, NULL, strip, header, width, height, flags | show );
@@ -9492,25 +9372,29 @@ static void s_sidebarShow( HWND sidebar, X_GUI_SIDEBAR *side, int page )
       SetFocus( GetParent( sidebar ) );
 }
 
-/* The sidebar paints its strip, the title of the shown page and the line at its edge */
+/* The sidebar paints its strip with the line of one pixel at its right edge, the title of the shown page and the
+   line at its edge */
 static void s_sidebarPaint( HWND sidebar, const X_GUI_SIDEBAR *side )
 {
    PAINTSTRUCT state;
    HDC dc = BeginPaint( sidebar, &state );
    UINT dpi = GetDpiForWindow( sidebar );
-   HGDIOBJ old = SelectObject( dc, s_font( dpi ) );
+   HGDIOBJ old = SelectObject( dc, x_guiFont( dpi ) );
    HBRUSH brush = ( HBRUSH )GetStockObject( DC_BRUSH );
-   int strip = s_scale( X_GUI_SIDEBAR_STRIP, dpi );
-   int left = strip + s_scale( X_GUI_SIDEBAR_TITLE, dpi );
-   int header = s_scale( X_GUI_SIDEBAR_HEADER, dpi );
+   int strip = x_guiScale( X_GUI_SIDEBAR_STRIP, dpi );
+   int left = strip + x_guiScale( X_GUI_SIDEBAR_TITLE, dpi );
+   int header = x_guiScale( X_GUI_SIDEBAR_HEADER, dpi );
    const X_GUI_SIDEPAGE *page;
    COLORREF back, fore;
    RECT client, part, actions;
 
-   s_sidebarPanelColors( sidebar, &back, &fore );
+   x_guiSidebarColors( sidebar, &back, &fore );
    GetClientRect( sidebar, &client );
    part = ( RECT ){ 0, 0, strip, client.bottom };
-   SetDCBrushColor( dc, s_sidebarStripColor( sidebar, side ) );
+   SetDCBrushColor( dc, s_sidebarStripColor( side ) );
+   FillRect( dc, &part, brush );
+   part = ( RECT ){ strip - 1, 0, strip, client.bottom };
+   SetDCBrushColor( dc, s_colorRef( X_GUI_SIDEBAR_BORDER ) );
    FillRect( dc, &part, brush );
    if( side->page > 0 )
    {
@@ -9523,7 +9407,7 @@ static void s_sidebarPaint( HWND sidebar, const X_GUI_SIDEBAR *side )
       DrawTextW( dc, page->title, -1, &part, DT_LEFT | DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX | DT_END_ELLIPSIS );
 
       part = ( RECT ){ client.right - 1, 0, client.right, client.bottom };
-      SetDCBrushColor( dc, s_mix( back, fore, 48 ) );
+      SetDCBrushColor( dc, x_guiMix( back, fore, 48 ) );
       FillRect( dc, &part, brush );
    }
 
@@ -9551,9 +9435,9 @@ static LRESULT s_sidebarDraw( HWND sidebar, const X_GUI_SIDEBAR *side, NMTBCUSTO
    COLORREF back, fore;
    RECT face;
 
-   s_sidebarPanelColors( sidebar, &back, &fore );
+   x_guiSidebarColors( sidebar, &back, &fore );
    if( strip )
-      back = s_sidebarStripColor( sidebar, side );
+      back = s_sidebarStripColor( side );
 
    if( draw->nmcd.dwDrawStage == CDDS_PREPAINT )
    {
@@ -9570,15 +9454,15 @@ static LRESULT s_sidebarDraw( HWND sidebar, const X_GUI_SIDEBAR *side, NMTBCUSTO
    FillRect( dc, &face, brush );
    if( hot && !strip )
    {
-      InflateRect( &face, -s_scale( 1, dpi ), -s_scale( 1, dpi ) );
-      SetDCBrushColor( dc, s_mix( back, fore, 40 ) );
+      InflateRect( &face, -x_guiScale( 1, dpi ), -x_guiScale( 1, dpi ) );
+      SetDCBrushColor( dc, x_guiMix( back, fore, 40 ) );
       FillRect( dc, &face, brush );
    }
 
    if( shown )
    {
       face = draw->nmcd.rc;
-      face.right = face.left + s_scale( X_GUI_SIDEBAR_MARK, dpi );
+      face.right = face.left + x_guiScale( X_GUI_SIDEBAR_MARK, dpi );
       SetDCBrushColor( dc, IIF( accent >= 0, s_colorRef( accent ), GetSysColor( COLOR_HIGHLIGHT ) ) );
       FillRect( dc, &face, brush );
    }
@@ -9627,7 +9511,7 @@ static int s_sidebarCommand( HWND sidebar, X_GUI_SIDEBAR *side, HWND toolbar, in
       if( side->page > 0 )
          SetFocus( side->pages[side->page - 1].panel );
 
-      s_notify( object, "__GUICHANGE", &result, 0, NULL );
+      x_guiNotify( object, "__GUICHANGE", &result, 0, NULL );
       return 1;
    }
 
@@ -9637,7 +9521,7 @@ static int s_sidebarCommand( HWND sidebar, X_GUI_SIDEBAR *side, HWND toolbar, in
          values[0] = ( int64_t )i + 1;
    }
 
-   s_notify( object, "__GUICOMMAND", &result, 2, values );
+   x_guiNotify( object, "__GUICOMMAND", &result, 2, values );
 
    return 1;
 }
@@ -9647,7 +9531,7 @@ static int s_sidebarOnEdge( HWND sidebar, const X_GUI_SIDEBAR *side, int x )
 {
    UINT dpi = GetDpiForWindow( sidebar );
 
-   return side->page > 0 && x >= s_scale( X_GUI_SIDEBAR_STRIP, dpi ) + s_scale( side->width, dpi );
+   return side->page > 0 && x >= x_guiScale( X_GUI_SIDEBAR_STRIP, dpi ) + x_guiScale( side->width, dpi );
 }
 
 /* The edge dragged to x: the panel takes the new width, not less than the smallest one and leaving room for the
@@ -9655,13 +9539,13 @@ static int s_sidebarOnEdge( HWND sidebar, const X_GUI_SIDEBAR *side, int x )
 static void s_sidebarDrag( HWND sidebar, X_GUI_SIDEBAR *side, int x )
 {
    UINT dpi = GetDpiForWindow( sidebar );
-   int least = s_scale( X_GUI_SIDEBAR_MINWIDTH, dpi );
-   int width = x - s_scale( X_GUI_SIDEBAR_STRIP, dpi ) - s_scale( X_GUI_SIDEBAR_EDGE, dpi ) / 2;
+   int least = x_guiScale( X_GUI_SIDEBAR_MINWIDTH, dpi );
+   int width = x - x_guiScale( X_GUI_SIDEBAR_STRIP, dpi ) - x_guiScale( X_GUI_SIDEBAR_EDGE, dpi ) / 2;
    int most;
    RECT client;
 
    GetClientRect( GetParent( sidebar ), &client );
-   most = client.right - s_scale( X_GUI_SIDEBAR_STRIP + X_GUI_SIDEBAR_EDGE + X_GUI_SIDEBAR_REST, dpi );
+   most = client.right - x_guiScale( X_GUI_SIDEBAR_STRIP + X_GUI_SIDEBAR_EDGE + X_GUI_SIDEBAR_REST, dpi );
    width = IIF( width > most, most, width );
    width = IIF( width < least, least, width );
    width = MulDiv( width, USER_DEFAULT_SCREEN_DPI, ( int )dpi );
@@ -9816,9 +9700,9 @@ void x_guiSidebarNew( X_CALL_CTX *ctx )
 }
 
 /* Add a page: its panel, the bar of its actions and its picture on the bar of pages with the title in the tip
-   without cToolTip; arguments cTitle, cBitmap, cToolTip and cShortcut as in oSidebar:Add(); returns the number
-   of the page, 0 with an error raised */
-int x_guiSidebarAdd( X_CALL_CTX *ctx, HWND sidebar, X_ITEM *page )
+   without cToolTip; arguments cTitle, cBitmap, cToolTip and cShortcut as in oSidebar:Add(); with a menu the panel
+   shows its items; returns the number of the page, 0 with an error raised */
+int x_guiSidebarAdd( X_CALL_CTX *ctx, HWND sidebar, X_ITEM *page, HMENU menu )
 {
    X_GUI_SIDEBAR *side = s_sidebarOf( sidebar );
    const X_ITEM *toolTip = IIF( X_ISNIL( ctx, 3 ), x_paritem( ctx, 1 ), x_paritem( ctx, 3 ) );
@@ -9862,6 +9746,9 @@ int x_guiSidebarAdd( X_CALL_CTX *ctx, HWND sidebar, X_ITEM *page )
    side->pages = ( X_GUI_SIDEPAGE * )x_xrealloc( side->pages, ( side->count + 1 ) * sizeof( X_GUI_SIDEPAGE ) );
    side->pages[side->count] = ( X_GUI_SIDEPAGE ){ panel, actions, title };
    ++side->count;
+   if( menu != NULL )
+      x_guiSideMenu( panel, menu );
+
    x_callbackEnterDll();
    s_sidebarLayout( sidebar );
    x_callbackLeaveDll();
@@ -10283,13 +10170,7 @@ static void s_moduleExit( X_CALL_CTX *ctx )
       x_xfree( windows );
    }
 
-   s_timersRelease( NULL );
-   if( s_timers != NULL )
-   {
-      x_xfree( s_timers );
-      s_timers = NULL;
-      s_timerCapacity = 0;
-   }
+   x_guiTimersShutdown();
 
    while( s_actionCount > 0 )
    {

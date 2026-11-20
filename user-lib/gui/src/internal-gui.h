@@ -128,6 +128,25 @@ typedef enum
    X_GUI_MESSAGE_YESNO
 } X_GUI_MESSAGE;
 
+/* Menus drawn in the extended style: a picture strip at the left of drop-down menus and a gradient under the
+   commands of the menu bar; the colors of the selection are those of Office XP */
+typedef struct
+{
+   wchar_t *text;
+   wchar_t *shortcut;
+   HIMAGELIST image;
+   int bar;
+   int separator;
+} X_GUI_MENUITEM;
+
+/* A running timer and its xDev object */
+typedef struct
+{
+   HWND window;
+   UINT_PTR id;
+   X_ITEM *timer;
+} X_GUI_TIMER;
+
 /* ---------------------------------------------------------------------------------------------
    Arguments, results and errors
    --------------------------------------------------------------------------------------------- */
@@ -142,6 +161,15 @@ HWND x_guiObjectWindow( X_CALL_CTX *ctx, const X_ITEM *object, const char *opera
 HWND x_guiObjectControl( X_CALL_CTX *ctx, const X_ITEM *object, const char *operation );
 HMENU x_guiObjectMenu( X_CALL_CTX *ctx, const X_ITEM *object, const char *operation );
 void x_guiEvent( X_CALL_CTX *ctx, size_t slot );
+int x_guiNotify( X_ITEM *object, const char *message, X_ITEM *result, int argc, const int64_t *values );
+
+/* ---------------------------------------------------------------------------------------------
+   DPI, fonts and colors
+   --------------------------------------------------------------------------------------------- */
+
+int x_guiScale( int value, UINT dpi );
+HFONT x_guiFont( UINT dpi );
+COLORREF x_guiMix( COLORREF first, COLORREF second, int amount );
 
 /* ---------------------------------------------------------------------------------------------
    Windows
@@ -188,6 +216,7 @@ void x_guiSetContextMenu( X_CALL_CTX *ctx, size_t slot, const char *operation );
    Controls
    --------------------------------------------------------------------------------------------- */
 
+LRESULT x_guiSend( HWND window, UINT message, WPARAM wParam, LPARAM lParam );
 void x_guiControlNew( X_CALL_CTX *ctx, X_GUI_KIND kind, int width, int height, int hasText );
 void x_guiGetNew( X_CALL_CTX *ctx );
 void x_guiSayNew( X_CALL_CTX *ctx );
@@ -300,6 +329,8 @@ int x_guiTreeCount( HWND window );
    --------------------------------------------------------------------------------------------- */
 
 HBITMAP x_guiPicture( X_CALL_CTX *ctx, const X_ITEM *file, const char *operation );
+int x_guiHasAlpha( const BITMAP *info );
+COLORREF x_guiCornerColor( HBITMAP picture );
 
 /* ---------------------------------------------------------------------------------------------
    Toolbars
@@ -324,7 +355,7 @@ void x_guiToolbarSetColor( X_CALL_CTX *ctx, X_GUI_COLOR part );
    --------------------------------------------------------------------------------------------- */
 
 void x_guiSidebarNew( X_CALL_CTX *ctx );
-int x_guiSidebarAdd( X_CALL_CTX *ctx, HWND sidebar, X_ITEM *page );
+int x_guiSidebarAdd( X_CALL_CTX *ctx, HWND sidebar, X_ITEM *page, HMENU menu );
 void x_guiSidebarPanel( X_CALL_CTX *ctx, HWND sidebar, int page );
 int x_guiSidebarAddButton( X_CALL_CTX *ctx, HWND sidebar, int page, const X_ITEM *bitmap, const X_ITEM *toolTip );
 int x_guiSidebarPage( HWND sidebar );
@@ -333,6 +364,13 @@ int x_guiSidebarWidth( HWND sidebar );
 void x_guiSidebarSetWidth( HWND sidebar, int width );
 void x_guiSidebarColor( X_CALL_CTX *ctx, X_GUI_SIDEBAR_COLOR part );
 void x_guiSidebarSetColor( X_CALL_CTX *ctx, X_GUI_SIDEBAR_COLOR part );
+void x_guiSidebarColors( HWND sidebar, COLORREF *back, COLORREF *fore );
+
+/* ---------------------------------------------------------------------------------------------
+   Menus in a panel of a sidebar
+   --------------------------------------------------------------------------------------------- */
+
+void x_guiSideMenu( HWND panel, HMENU menu );
 
 /* ---------------------------------------------------------------------------------------------
    Browses
@@ -356,9 +394,12 @@ void x_guiBrowseRow( X_CALL_CTX *ctx, const X_ITEM *columns );
    Timers
    --------------------------------------------------------------------------------------------- */
 
+X_GUI_TIMER *x_guiTimerFind( UINT_PTR id );
+void x_guiTimersRelease( HWND window );
 UINT_PTR x_guiTimerStart( X_CALL_CTX *ctx, HWND window, UINT_PTR id, int interval );
 void x_guiTimerStop( UINT_PTR id );
 int x_guiTimerActive( UINT_PTR id );
+void x_guiTimersShutdown( void );
 
 /* ---------------------------------------------------------------------------------------------
    Dialogs
