@@ -1029,7 +1029,7 @@ int x_guiToolbarAdd( X_CALL_CTX *ctx, HWND toolbar, const X_ITEM *text, const X_
    bar->keys[bar->count] = key;
    bar->modifiers[bar->count] = modifiers;
    memset( &bar->glyphs[bar->count], 0, sizeof( X_GUI_GLYPH ) );
-   if( bitmap != NULL && x_objIsKindOf( bitmap, "GUIFONTICON" ) )
+   if( bitmap != NULL && !X_IS_NIL( bitmap ) && x_objIsKindOf( bitmap, "GUIFONTICON" ) )
       x_guiFontIconGlyph( ctx, bitmap, &bar->glyphs[bar->count] );
 
    ++bar->count;

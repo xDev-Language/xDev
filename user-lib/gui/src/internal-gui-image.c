@@ -529,7 +529,7 @@ static HBITMAP s_iconPicture( X_CALL_CTX *ctx, const X_ITEM *icon, const char *o
 /* Whether an argument names a picture: the name of a PNG or BMP file or a gui_Icon */
 int x_guiIsPicture( const X_ITEM *item )
 {
-   return item != NULL && ( X_IS_STRING( item ) || x_objIsKindOf( item, "GUIFONTICON" ) );
+   return item != NULL && !X_IS_NIL( item ) && ( X_IS_STRING( item ) || x_objIsKindOf( item, "GUIFONTICON" ) );
 }
 
 /* A PNG or BMP picture or a gui_Icon as a DIB section; NULL with an error raised */
@@ -548,7 +548,7 @@ HBITMAP x_guiPicture( X_CALL_CTX *ctx, const X_ITEM *file, const char *operation
    int loaded = 0, valid;
    size_t stride, rows;
 
-   if( file != NULL && x_objIsKindOf( file, "GUIFONTICON" ) )
+   if( file != NULL && !X_IS_NIL( file ) && x_objIsKindOf( file, "GUIFONTICON" ) )
       return s_iconPicture( ctx, file, operation );
 
    if( name != NULL && memchr( name, '\0', length ) == NULL )

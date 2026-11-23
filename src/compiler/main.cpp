@@ -118,6 +118,7 @@ struct X_OPTIONS
    X_STRINGS libraryPaths;
    X_STRINGS images;
    X_STRINGS icons;
+   X_STRINGS manifests;
    X_STRINGS interfaces; /* files that may hold class descriptions */
    bool dumpAst = false;
    bool compileOnly = false;
@@ -162,6 +163,7 @@ struct X_LINK
    std::string binary;
    X_STRINGS libraries;
    X_STRINGS libraryPaths;
+   std::string manifest; /* the manifest of the program joined with the built-in one */
    bool windowsSubsystem = false;
    bool sharedLibrary = false;
    bool dynamicRuntime = false;
@@ -836,6 +838,7 @@ static bool s_linkExecutable( const X_LINK &link, X_TEMP_FILES &temporary, std::
 {
    const fs::path manifestPath = temporary.directory / "utf8.manifest";
    const std::string manifestInput = "--Xlink=/manifestinput:" + manifestPath.string();
+   const std::string programManifest = "--Xlink=/manifestinput:" + link.manifest;
    const std::string libDirFlag = "-L" + link.libDir;
    const char *runtimeName = IIF( link.dynamicRuntime, "libxdev.dll.a", "libxdev.a" );
    const std::string runtimeLib = ( fs::path( link.libDir ) / runtimeName ).string();
@@ -888,6 +891,8 @@ static bool s_linkExecutable( const X_LINK &link, X_TEMP_FILES &temporary, std::
 
       args.push_back( "--Xlink=/manifest:embed" );
       args.push_back( manifestInput.c_str() );
+      if( !link.manifest.empty() )
+         args.push_back( programManifest.c_str() );
       args.push_back( "--subsystem" );
       args.push_back( IIF( link.windowsSubsystem, "windows", "console" ) );
    }
@@ -1349,6 +1354,7 @@ static const char s_helpText[] =
    "  modul.prg               Kolejny plik zrodlowy programu\n"
    "  plik.o, biblioteka.a    Plik obiektowy lub biblioteka statyczna do zlinkowania\n"
    "  ikona.ico               Ikona programu Windows; najwyzej jedna\n"
+   "  plik.manifest           Manifest Windows dolaczony do manifestu programu; najwyzej jeden\n"
    "  obraz.png, obraz.bmp    Obrazek wbudowany w program pod swoja nazwa\n"
    "  plik.rmk                Plik budowania: wiersze \"cel: pliki [opcje]\", np. -Wno-unused;\n"
    "                          cel powstaje, gdy go brak lub jest starszy od ktoregos pliku\n"
@@ -1576,6 +1582,9 @@ static bool s_rmkDependencies( X_RMK &make, const std::string &source, std::stri
 static bool s_isLinkInput( const std::string &source )
 {
    if( s_hasExtension( source, ".o" ) || s_hasExtension( source, ".a" ) )
+      return true;
+
+   if( s_hasExtension( source, ".manifest" ) )
       return true;
 
    return s_hasExtension( source, ".png" ) || s_hasExtension( source, ".bmp" ) || s_hasExtension( source, ".ico" );
@@ -1965,6 +1974,8 @@ static void s_sortInputs( X_OPTIONS &options )
          options.images.push_back( input );
       else if( s_hasExtension( input, ".ico" ) )
          options.icons.push_back( input );
+      else if( s_hasExtension( input, ".manifest" ) )
+         options.manifests.push_back( input );
       else
          sources.push_back( input );
    }
@@ -2024,7 +2035,7 @@ static bool s_checkArchive( const X_OPTIONS &options, int modes )
 /* Options that do not go together */
 static bool s_checkOptions( const X_OPTIONS &options )
 {
-   const bool media = !options.images.empty() || !options.icons.empty();
+   const bool media = !options.images.empty() || !options.icons.empty() || !options.manifests.empty();
    const bool runtimeDll = options.sharedLibrary || options.dynamicRuntime;
    const int modes = s_modes( options );
 
@@ -2051,8 +2062,11 @@ static bool s_checkOptions( const X_OPTIONS &options )
    if( options.icons.size() > 1 )
       return s_reject( "program ma jedna ikone .ico" );
 
+   if( options.manifests.size() > 1 )
+      return s_reject( "program ma jeden plik .manifest" );
+
    if( media && ( options.archiveOutput || options.sharedLibrary || s_noProgram( options ) ) )
-      return s_reject( "obrazki .png, .bmp i ikone .ico wklada sie tylko do programu" );
+      return s_reject( "obrazki .png, .bmp, ikone .ico i plik .manifest wklada sie tylko do programu" );
 
    if( options.assembly != options.emitLLVM )
       return s_reject( "zapis LLVM IR wymaga -S -emit-llvm; zapis asemblera nie jest obslugiwany" );
@@ -2369,6 +2383,7 @@ static int s_linkProgram( const char *argv0, const X_OPTIONS &options, X_LINK &l
    link.binary = options.binary.string();
    link.libraryPaths = options.libraryPaths;
    link.windowsSubsystem = options.windowsSubsystem;
+   link.manifest = IIF( options.manifests.empty(), std::string(), options.manifests[0] );
    link.sharedLibrary = options.sharedLibrary;
    link.dynamicRuntime = options.dynamicRuntime || options.sharedLibrary;
    importInputs.insert( importInputs.end(), link.libraries.begin(), link.libraries.end() );

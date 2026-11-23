@@ -71,11 +71,12 @@ static int s_sidebarBar( const X_GUI_SIDEBAR *side, HWND window )
    return 0;
 }
 
-/* A bar of picture buttons without text, placed by the sidebar; the bar of pages and the bar of buttons have their
-   pictures one under another, the bar of actions of a page stays hidden until the page is shown */
+/* A bar of picture buttons without text and without tooltips, placed by the sidebar; the bar of pages and the bar
+   of buttons have their pictures one under another, the bar of actions of a page stays hidden until the page is
+   shown */
 static HWND s_sidebarToolbar( HWND sidebar, int vertical )
 {
-   DWORD style = WS_CHILD | WS_CLIPSIBLINGS | TBSTYLE_FLAT | TBSTYLE_TOOLTIPS;
+   DWORD style = WS_CHILD | WS_CLIPSIBLINGS | TBSTYLE_FLAT;
    HINSTANCE instance = GetModuleHandleW( NULL );
    HWND toolbar;
 
