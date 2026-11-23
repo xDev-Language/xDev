@@ -262,6 +262,7 @@ struct X_LLVM::IMPL
    std::vector<CALLBACK_JOB> callbackJobs;
    llvm::Value *nativeResult = nullptr;
    X_DECL_TYPE nativeResultType = X_DECL_TYPE::ANY;
+   std::string nativeResultTypeName;
 
    llvm::StructType *ctxType = nullptr;
    llvm::StructType *itemStructType = nullptr;
@@ -1825,7 +1826,7 @@ struct X_LLVM::IMPL
       if( !value )
          return nullptr;
 
-      if( resultType == X_DECL_TYPE::ANY )
+      if( resultType == X_DECL_TYPE::ANY || resultType == X_DECL_TYPE::STRUCT )
          return result;
 
       return nativeItem( { value, resultType } );
@@ -1842,6 +1843,9 @@ struct X_LLVM::IMPL
       llvm::Function *callee;
       llvm::Value *args;
       llvm::Value *result;
+
+      if( isTyped && typed->second.result == X_DECL_TYPE::STRUCT && !directNativeCall( expr ) )
+         return IIF( structResultCall( expr ), typedCall( expr, typed->second.result ), nullptr );
 
       if( isTyped && directNativeCall( expr ) )
          return typedCall( expr, typed->second.result );
@@ -4034,6 +4038,12 @@ struct X_LLVM::IMPL
       return kind == X_EXPR_KIND::NUMBER || kind == X_EXPR_KIND::LOGICAL || kind == X_EXPR_KIND::CAST;
    }
 
+   /* A minus before a number literal is a constant of the type of the literal: constitution part II, Types */
+   static bool negatedLiteral( const X_EXPR &expr )
+   {
+      return expr.kind == X_EXPR_KIND::UNARY && expr.text == "-" && expr.args[0]->kind == X_EXPR_KIND::NUMBER;
+   }
+
    /* A send to a typed method with a native result */
    bool typedSend( const X_EXPR &expr ) const
    {
@@ -4121,10 +4131,33 @@ struct X_LLVM::IMPL
       return { llvm::ConstantFP::get( doubleTy(), expr.number ), X_DECL_TYPE::FLOAT64 };
    }
 
-   /* A typed function is called directly, any other call is unboxed */
+   /* A function with a STRUCT result is called natively; an ANY argument cannot go by @ to a typed parameter */
+   bool structResultCall( const X_EXPR &expr )
+   {
+      const NATIVE_FUNCTION &callee = nativeFunctions.at( s_key( expr.text ) );
+
+      for( size_t i = 0; i < expr.args.size() && i < callee.parameters.size(); ++i )
+      {
+         const bool reference = i < expr.argByReference.size() && expr.argByReference[i];
+
+         if( reference && callee.parameters[i] != X_DECL_TYPE::ANY && expr.args[i]->type == X_DECL_TYPE::ANY )
+         {
+            fail( expr.line, "wynik STRUCT: argument ANY nie moze przejsc przez @ do parametru z typem" );
+            return false;
+         }
+      }
+
+      return true;
+   }
+
+   /* A typed function is called directly, any other call is unboxed; a STRUCT result comes only from the
+      native entry, where an ANY argument is converted to its parameter */
    NATIVE_VALUE nativeCallValue( const X_EXPR &expr )
    {
-      if( !directNativeCall( expr ) )
+      if( !directNativeCall( expr ) && expr.type == X_DECL_TYPE::STRUCT && !structResultCall( expr ) )
+         return {};
+
+      if( !directNativeCall( expr ) && expr.type != X_DECL_TYPE::STRUCT )
          return nativeUnbox( callExpression( expr ), expr.type, false );
 
       const NATIVE_FUNCTION &callee = nativeFunctions.at( s_key( expr.text ) );
@@ -4520,7 +4553,7 @@ struct X_LLVM::IMPL
       if( typedSend( expr ) )
          return withConversion( expr, nativeSend( expr, freshItem( "native.send.result" ) ) );
 
-      if( !expr.nativeType && !ownNativeType( expr.kind ) )
+      if( !expr.nativeType && !ownNativeType( expr.kind ) && !negatedLiteral( expr ) )
          return nativeAny( expr );
 
       if( !nativeByKind( expr, result ) )
@@ -8065,10 +8098,12 @@ struct X_LLVM::IMPL
       enterTrace();
       beginUnwind();
 
-      if( nativeType( nativeResultType ) )
+      llvm::Type *resultType = nativeType( nativeResultType, nativeResultTypeName );
+
+      if( resultType )
       {
-         nativeResult = builder.CreateAlloca( nativeType( nativeResultType ), nullptr, "native.result" );
-         builder.CreateStore( llvm::Constant::getNullValue( nativeType( nativeResultType ) ), nativeResult );
+         nativeResult = builder.CreateAlloca( resultType, nullptr, "native.result" );
+         builder.CreateStore( llvm::Constant::getNullValue( resultType ), nativeResult );
       }
    }
 
@@ -8446,7 +8481,7 @@ struct X_LLVM::IMPL
       emitCleanup();
       leaveTrace();
       if( nativeResult )
-         builder.CreateRet( builder.CreateLoad( nativeType( nativeResultType ), nativeResult ) );
+         builder.CreateRet( builder.CreateLoad( nativeType( nativeResultType, nativeResultTypeName ), nativeResult ) );
       else
          builder.CreateRetVoid();
 
@@ -8476,6 +8511,7 @@ struct X_LLVM::IMPL
 
       nativeResult = nullptr;
       nativeResultType = IIF( typed != nullptr, typed->result, X_DECL_TYPE::ANY );
+      nativeResultTypeName = IIF( typed != nullptr, typed->resultTypeName, std::string() );
       currentFunctionName = functionTitle( fn, key );
       startFunction( fn, block, key );
       enterFunction( currentFunc );
@@ -8584,6 +8620,7 @@ struct X_LLVM::IMPL
       currentFunctionName = s_key( fn.name );
       nativeResult = nullptr;
       nativeResultType = X_DECL_TYPE::ANY;
+      nativeResultTypeName.clear();
       locals.clear();
       nativeLocals.clear();
       clearFunctionState();
@@ -8602,8 +8639,11 @@ struct X_LLVM::IMPL
       for( size_t i = 0; i < function.parameters.size(); ++i )
          wrapperArgument( function, i, fn.isDll, arguments );
 
+      if( function.result == X_DECL_TYPE::STRUCT )
+         nativeGuard( builder.getFalse(), 3107 );
+
       result = emitCall( function.function, arguments );
-      if( function.result != X_DECL_TYPE::ANY )
+      if( function.result != X_DECL_TYPE::ANY && function.result != X_DECL_TYPE::STRUCT )
       {
          item = nativeItem( { result, function.result } );
          if( !item )
@@ -9063,7 +9103,7 @@ struct X_LLVM::IMPL
       if( itemOnlyType( result ) )
          signature.supported = false;
 
-      if( result != X_DECL_TYPE::ANY && !itemOnlyType( result ) && !nativeType( result ) )
+      if( result != X_DECL_TYPE::ANY && !itemOnlyType( result ) && !nativeType( result, fn.resultTypeName ) )
       {
          const std::string resultName = x_declTypeName( result );
 
@@ -9074,7 +9114,7 @@ struct X_LLVM::IMPL
       if( !signature.supported || !( fn.isDll || result != X_DECL_TYPE::ANY || signature.types.size() > 1 ) )
          return true;
 
-      resultType = IIF( result == X_DECL_TYPE::ANY, voidTy(), nativeType( result ) );
+      resultType = IIF( result == X_DECL_TYPE::ANY, voidTy(), nativeType( result, fn.resultTypeName ) );
       type = llvm::FunctionType::get( resultType, signature.types, false );
       nativeFn = llvm::Function::Create( type, llvm::Function::InternalLinkage, "x.native." + key, module.get() );
       nativeFn->getArg( 0 )->setName( "ctx" );

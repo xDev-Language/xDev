@@ -29,12 +29,17 @@
  * INT32 + UINT32 gives INT64    OK
  * INT is INT64, exact           OK
  * UINT64 maximum as text        OK
+ * UINT64 hexadecimal maximum    OK
+ * -1 is an INT64 constant       OK
+ * minus before a literal        OK
  * CAST truncates toward zero    OK
  * CAST out of range is an error OK
  * ANY with text -> INT error    OK
  * FLOAT64 keeps 0.1             OK
  * FLOAT32 rounds 0.1            OK
  * FLOAT is FLOAT64              OK
+ * minus before a fraction       OK
+ * INT32 + FLOAT32 gives FLOAT32 OK
  * INT / INT gives a fraction    OK
  * STRING counts bytes           OK
  * LOGIC                         OK
@@ -92,6 +97,8 @@ STATIC PROCEDURE s_Integers()
    LOCAL nU32   AS UINT32 := 4294967295
    LOCAL n      AS INT    := 9007199254740993
    LOCAL nU64   AS UINT64 := 18446744073709551615
+   LOCAL nHex   AS UINT64 := 0xFFFFFFFFFFFFFFFF
+   LOCAL nMax   AS INT64  := 9223372036854775807
    LOCAL xValue AS ANY
 
    Check( "INT8 maximum                  ", n8, 127 )
@@ -103,6 +110,10 @@ STATIC PROCEDURE s_Integers()
    Check( "INT32 + UINT32 gives INT64    ", n32 + nU32, 6442450942 )
    Check( "INT is INT64, exact           ", n - 1, 9007199254740992 )
    Check( "UINT64 maximum as text        ", Str( nU64, 20 ), "18446744073709551615" )
+   Check( "UINT64 hexadecimal maximum    ", nHex == nU64, .T. )
+   // -1 is an INT64 constant, so nMax - -1 is computed as INT64 and overflows; as ANY it would not
+   Check( "-1 is an INT64 constant       ", s_Fails( {|| xValue := nMax - -1 } ), .T. )
+   Check( "minus before a literal        ", nMax + -1, 9223372036854775806 )
    Check( "CAST truncates toward zero    ", CAST( -2.7 AS INT ), -2 )
    Check( "CAST out of range is an error ", s_Fails( {|| n8 := CAST( 300 AS INT8 ) } ), .T. )
    xValue := "text"
@@ -112,14 +123,21 @@ RETURN
 
 STATIC PROCEDURE s_Floats()
 
-   LOCAL f64 AS FLOAT64 := 0.1
-   LOCAL f32 AS FLOAT32 := 0.1
-   LOCAL f   AS FLOAT   := 1.5
-   LOCAL n   AS INT     := 3
+   LOCAL f64   AS FLOAT64 := 0.1
+   LOCAL f32   AS FLOAT32 := 0.1
+   LOCAL f     AS FLOAT   := 1.5
+   LOCAL n     AS INT     := 3
+   LOCAL n32   AS INT32   := 16777217
+   LOCAL fZero AS FLOAT32 := 0
+   LOCAL fSum  AS FLOAT64
 
    Check( "FLOAT64 keeps 0.1             ", f64 == 0.1, .T. )
    Check( "FLOAT32 rounds 0.1            ", f32 == 0.1, .F. )
    Check( "FLOAT is FLOAT64              ", f * 2, 3.0 )
+   Check( "minus before a fraction       ", f + -1.5, 0.0 )
+   // INT32 + FLOAT32 is FLOAT32 as in C: 16777217 has no exact FLOAT32 value and becomes 16777216
+   fSum := n32 + fZero
+   Check( "INT32 + FLOAT32 gives FLOAT32 ", fSum, 16777216.0 )
    Check( "INT / INT gives a fraction    ", n / 2, 1.5 )
 
 RETURN

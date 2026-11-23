@@ -10,6 +10,8 @@
 #include "typecheck.hpp"
 
 #include <cctype>
+#include <cerrno>
+#include <cstdlib>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -260,10 +262,30 @@ static const char *s_assignOperator( X_ASSIGN_OP op )
    Expressions
    --------------------------------------------------------------------------------------------- */
 
+/* An integer literal above the INT64 maximum that fits UINT64, as the backend makes it */
+static bool s_unsignedLiteral( const X_EXPR &expr )
+{
+   const bool hex = expr.text.size() > 2 && expr.text[0] == '0' && ( expr.text[1] == 'x' || expr.text[1] == 'X' );
+   const std::string digits = IIF( hex, expr.text.substr( 2 ), expr.text );
+   unsigned long long value;
+   char *end;
+
+   if( digits.empty() || ( !hex && digits.find_first_of( ".eE" ) != std::string::npos ) )
+      return false;
+
+   errno = 0;
+   value = std::strtoull( digits.c_str(), &end, IIF( hex, 16, 10 ) );
+
+   return errno != ERANGE && *end == '\0' && value > 0x7FFFFFFFFFFFFFFFULL;
+}
+
 static X_DECL_TYPE s_numberType( const X_EXPR &expr )
 {
    if( expr.numberIsInteger )
       return X_DECL_TYPE::INT64;
+
+   if( s_unsignedLiteral( expr ) )
+      return X_DECL_TYPE::UINT64;
 
    return X_DECL_TYPE::FLOAT64;
 }
@@ -462,14 +484,10 @@ private:
          return true;
       }
 
-      /* FLOAT32 with a 32 or 64-bit integer becomes FLOAT64 */
+      /* FLOAT32 with any integer stays FLOAT32, as in C: decided by the author, constitution part II, Types */
       if( left == X_DECL_TYPE::FLOAT32 || right == X_DECL_TYPE::FLOAT32 )
       {
-         if( s_width( left ) >= 32 || s_width( right ) >= 32 )
-            result = X_DECL_TYPE::FLOAT64;
-         else
-            result = X_DECL_TYPE::FLOAT32;
-
+         result = X_DECL_TYPE::FLOAT32;
          return true;
       }
 
@@ -1170,9 +1188,11 @@ private:
       if( arg.type != X_DECL_TYPE::ANY && !s_numeric( arg.type ) )
          return fail( expr.line, "operator " + expr.text + " wymaga liczby" );
 
+      /* A dynamic integer may leave the INT64 range when negated, so it gives ANY; a minus before a number
+         literal is a constant of the type of the literal, as in C: constitution part II, Types */
       if( expr.nativeType )
          expr.type = s_promote( arg.type );
-      else if( arg.type == X_DECL_TYPE::INT64 )
+      else if( arg.type == X_DECL_TYPE::INT64 && arg.kind != X_EXPR_KIND::NUMBER )
          expr.type = X_DECL_TYPE::ANY;
       else
          expr.type = arg.type;
@@ -1956,14 +1976,18 @@ private:
       return true;
    }
 
-   /* PSZ and STRUCT by value are for DLL only; OBJECT names a known class */
+   /* PSZ is for DLL only; a function returns a known STRUCT by value, a method does not; OBJECT names a
+      known class */
    bool functionTypes( const X_FUNCTION &function )
    {
       if( function.resultType == X_DECL_TYPE::PSZ )
          return fail( function.line, "PSZ moze byc wynikiem DLL FUNCTION; funkcja xDev powinna zwracac STRING" );
 
-      if( function.resultType == X_DECL_TYPE::STRUCT )
-         return fail( function.line, "wyniki STRUCT przez wartosc sa odlozone" );
+      if( function.resultType == X_DECL_TYPE::STRUCT && !function.methodKind.empty() )
+         return fail( function.line, "metoda nie moze zwracac STRUCT" );
+
+      if( function.resultType == X_DECL_TYPE::STRUCT && !m_structs.count( function.resultTypeName ) )
+         return fail( function.line, "nieznany STRUCT wyniku: " + function.resultTypeName );
 
       if( function.resultType == X_DECL_TYPE::OBJECT && unknownClass( function.resultTypeName ) )
          return fail( function.line, "nieznany typ OBJECT wyniku: " + function.resultTypeName );

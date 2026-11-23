@@ -12,7 +12,7 @@
  * STRUCT
  *
  * $ONELINER$
- * Check native structure fields, fixed arrays, copies and DLL arguments.
+ * Check native structure fields, fixed arrays, copies, function results and DLL arguments.
  *
  * $DESCRIPTION$
  * The default program checks values and recoverable errors. On Windows it
@@ -91,6 +91,7 @@ PROCEDURE Main()
    s_Scalars()
    s_Packets()
    s_DottedNames()
+   s_Results()
    s_ErrorCases()
 #if OS_WINDOWS
    s_NativeLayout()
@@ -212,6 +213,76 @@ STATIC PROCEDURE s_DottedNames()
    Check( ".AND. after a field", value.y.x > value.t .AND. value.f < value.n, .T. )
 
 RETURN
+
+STATIC PROCEDURE s_Results()
+
+   LOCAL point    AS PointRecord := s_MakePoint( 1, 2 )
+   LOCAL other    AS PointRecord
+   LOCAL packet   AS TestPacket
+   LOCAL bOld     := ErrorBlock( {| oError | Break( oError ) } )
+   LOCAL xValue   := 5
+   LOCAL xText    := "five"
+   LOCAL oError
+   LOCAL nCode    := 0
+
+   Check( "result in LOCAL initializer",   point.x + point.y, 3 )
+   other := s_MakePoint( 30, 40 )
+   Check( "result assigned",               other.y, 40 )
+   other := s_MakePoint( other.y, other.x )
+   Check( "result from its own fields",    other.x * 100 + other.y, 4030 )
+   packet := s_MakePacket( 7, 10 )
+   Check( "large result scalar field",     packet.tag, 7 )
+   Check( "large result nested field",     packet.origin.y, 11 )
+   Check( "large result array element",    packet.points[ 2 ].x, 12 )
+   Check( "large result fixed array",      packet.samples[ 3 ], 30 )
+   Check( "large result trailing field",   packet.tail, 4000000000 )
+   packet.origin := s_MakePoint( -1, -2 )
+   Check( "result assigned to a field",    packet.origin.y, -2 )
+   packet.points[ 1 ] := s_MakePoint( 8, 9 )
+   Check( "result assigned to an element", packet.points[ 1 ].x, 8 )
+   s_MakePoint( 5, 6 )
+   Check( "unused result",                 point.x, 1 )
+   other := s_MakePoint( xValue, -2 )
+   Check( "result with ANY arguments",     other.x + other.y, 3 )
+
+   BEGIN SEQUENCE
+      other := s_MakePoint( xText, 1 )
+   RECOVER USING oError
+      nCode := oError:SubCode
+   ENDSEQUENCE
+   Check( "ANY argument of a wrong type",  nCode != 0, .T. )
+   Check( "result kept after the error",   other.x, 5 )
+   ErrorBlock( bOld )
+
+RETURN
+
+STATIC FUNCTION s_MakePoint( nX AS INT32, nY AS INT32 ) AS PointRecord
+
+   LOCAL point AS PointRecord
+
+   point.x := nX
+   point.y := nY
+
+RETURN point
+
+STATIC FUNCTION s_MakePacket( nTag AS UINT8, nBase AS INT32 ) AS TestPacket
+
+   LOCAL packet AS TestPacket
+   LOCAL n      AS INT
+
+   packet.tag := nTag
+   packet.origin := s_MakePoint( nBase, nBase + 1 )
+   FOR n := 1 TO 2
+      packet.points[ n ] := s_MakePoint( nBase + n, 0 )
+   NEXT
+
+   FOR n := 1 TO 3
+      packet.samples[ n ] := n * nBase
+   NEXT
+
+   packet.tail := 4000000000
+
+RETURN packet
 
 STATIC PROCEDURE s_ErrorCases()
 
@@ -498,8 +569,12 @@ STATIC PROCEDURE InvalidCase()
    RETURN
 
 #elif STRUCT_INVALID == 26
-// structure result
-STATIC FUNCTION InvalidResult() AS PointRecord
+// structure result of a method
+CREATE CLASS BadOwner
+   METHOD Point()
+ENDCLASS
+
+METHOD Point() AS PointRecord CLASS BadOwner
    LOCAL a AS PointRecord
    RETURN a
 
@@ -623,6 +698,47 @@ STATIC PROCEDURE InvalidCase()
 STRUCT BadName
    and AS INT
 ENDSTRUCT
+
+#elif STRUCT_INVALID == 42
+// result of an unknown structure type
+STATIC FUNCTION InvalidResult() AS UnknownRecord
+   RETURN NIL
+
+#elif STRUCT_INVALID == 43
+// result of a different structure type
+STATIC FUNCTION InvalidResult() AS PointRecord
+   LOCAL a AS TestPacket
+   RETURN a
+
+#elif STRUCT_INVALID == 44
+// structure result assigned to a different structure type
+STATIC PROCEDURE InvalidCase()
+   LOCAL a AS TestPacket
+   a := s_MakePoint( 1, 2 )
+   RETURN
+
+#elif STRUCT_INVALID == 45
+// structure result assigned to ANY
+STATIC PROCEDURE InvalidCase()
+   LOCAL a := s_MakePoint( 1, 2 )
+   QOut( a )
+   RETURN
+
+#elif STRUCT_INVALID == 46
+// structure result with an ANY argument by @ to a typed parameter
+STATIC PROCEDURE InvalidCase()
+   LOCAL a AS PointRecord
+   LOCAL b := 1
+   a := s_MakePoint( @b, 2 )
+   RETURN
+
+#elif STRUCT_INVALID == 47
+// structure result of a DLL function
+#if OS_WINDOWS
+DLL FUNCTION BadStamp() AS FileStamp FROM GetTickCount LIB "kernel32.dll"
+#else
+#error This case requires a Windows DLL
+#endif
 #endif
 
 
