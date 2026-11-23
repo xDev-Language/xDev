@@ -1,0 +1,15 @@
+xDev MyTiff - ChangeLog
+
+How to write an entry:
+  - New entries go at the top, directly below this description.
+  - Header: ISO date and the part of the library, e.g. "2026-11-17  xDev MyTiff".
+  - Below the header: the file path, then one line per change with a mark:
+      +  added
+      -  removed
+      *  changed
+      !  fixed
+  - English, short sentences. Describe what changes for the user or in the behaviour;
+    details stay in the git history.
+
+==============================================================================
+

@@ -1,0 +1,6 @@
+# xDev CURL
+*.a
+*.exe
+build/
+lib
+tmp

@@ -1,0 +1,6 @@
+# xDev GTGLFW
+*.a
+*.exe
+build/
+lib
+tmp

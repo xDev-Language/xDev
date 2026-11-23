@@ -1,0 +1,31 @@
+/*
+ * Copyright (c) 2024-2026 xDev-Language
+ *
+ * Library...: xDev Runtime
+ * File......: version.ch
+ *
+ */
+
+#ifndef VERSION_CH
+#define VERSION_CH
+
+ENUM VERSION
+   VERSION_XDEV,
+   VERSION_COMPILER,
+   VERSION_MAJOR,
+   VERSION_MINOR,
+   VERSION_RELEASE,
+   VERSION_PLATFORM,
+   VERSION_BITWIDTH,
+   VERSION_ENDIANNESS,
+   VERSION_BUILD_DATE_STR,
+   VERSION_BUILD_TIME,
+   VERSION_URL_BASE
+ENDENUM
+
+#define VERSION_ENDIAN_LITTLE   1
+#define VERSION_ENDIAN_BIG      2
+
+#endif /* VERSION_CH */
+
+

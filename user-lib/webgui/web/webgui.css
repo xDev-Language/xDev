@@ -1,0 +1,107 @@
+/*
+ * Copyright (c) 2024-2026 xDev-Language
+ *
+ * Library...: xDev WebGUI
+ * File......: webgui.css
+ *
+ */
+
+/* The style sheet of the controls, put into every page by the library before the own style sheets of the page,
+   so the page can change it */
+
+html, body { width: 100%; height: 100%; margin: 0; }
+body { position: relative; overflow: hidden; background: #f3f3f3; color: #202020;
+       font-family: "Segoe UI", Tahoma, Arial, sans-serif; font-size: 14px; }
+
+/* Layout: the window, a panel, a column and a part of a split put their controls one under another, a row
+   one beside another; a control with x or y stands out of the order */
+.wg-box, .wg-column { position: relative; display: flex; flex-direction: column; gap: 12px;
+                      box-sizing: border-box; min-width: 0; min-height: 0; }
+.wg-row { position: relative; display: flex; flex-direction: row; align-items: flex-end; gap: 8px;
+          min-width: 0; }
+.wg-row > .wg-field { flex: 1 1 0; }
+.wg-box > .wg-button, .wg-column > .wg-button, .wg-box > .wg-check, .wg-column > .wg-check,
+.wg-box > .wg-label, .wg-column > .wg-label { align-self: flex-start; }
+.wg-grow { flex: 1 1 0; min-height: 0; height: auto; }
+.wg-placed { position: absolute; }
+.wg-client { position: absolute; inset: 0; padding: 16px; overflow: auto; }
+.wg-has-menu .wg-client { top: 30px; }
+.wg-client > .wg-split { margin: -16px; }
+.wg-split { display: flex; flex: 1 1 0; min-height: 0; }
+.wg-split > .wg-column { padding: 16px; overflow: auto; }
+.wg-split > .wg-column:last-child { flex: 1 1 0; }
+.wg-divider { flex: 0 0 5px; cursor: ew-resize;
+              background: linear-gradient( #d0d0d0, #d0d0d0 ) center / 1px 100% no-repeat; }
+
+/* Controls */
+.wg-control { box-sizing: border-box; min-width: 0; font: inherit; }
+.wg-label { white-space: nowrap; }
+.wg-field { display: flex; flex-direction: column; gap: 4px; }
+.wg-caption { font-size: 13px; color: #505050; }
+.wg-caption:empty { display: none; }
+.wg-input { box-sizing: border-box; width: 100%; height: 32px; padding: 5px 8px; border: 1px solid #9a9a9a;
+            border-radius: 4px; background: #ffffff; color: inherit; font: inherit; }
+.wg-input:focus { outline: 2px solid #0078d4; outline-offset: -1px; }
+.wg-input:disabled { color: #666666; background: #e7e7e7; }
+.wg-get.number .wg-input { text-align: right; }
+.wg-get.invalid .wg-input { border-color: #c42b1c; outline-color: #c42b1c; }
+.wg-button { height: 32px; padding: 0 14px; border: 1px solid #8d8d8d; border-radius: 4px;
+             background: #ffffff; color: inherit; cursor: pointer; }
+.wg-button:hover:not(:disabled) { background: #e9e9e9; }
+.wg-button:focus-visible { outline: 2px solid #0078d4; outline-offset: -1px; }
+.wg-button:disabled { opacity: 0.55; cursor: default; }
+.wg-check { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+.wg-check.disabled { opacity: 0.55; cursor: default; }
+
+/* Browse */
+.wg-browse { height: 200px; overflow: auto; background: #ffffff; border: 1px solid #c8c8c8; }
+.wg-browse:focus { outline: 1px solid #0078d4; outline-offset: -1px; }
+.wg-browse table { min-width: 100%; border-collapse: collapse; }
+.wg-browse th, .wg-browse td { box-sizing: border-box; padding: 5px 8px; white-space: nowrap;
+                               border-right: 1px solid #e5e5e5; border-bottom: 1px solid #e5e5e5; }
+.wg-browse th { position: sticky; top: 0; z-index: 1; background: #ffffff; font-weight: 600; }
+.wg-browse tbody tr:hover td { background: #eef4ff; }
+.wg-browse tr.current td, .wg-browse tbody tr.current:hover td { color: #ffffff; background: #007acc; }
+
+/* Menus */
+.wg-menubar { position: absolute; z-index: 10; top: 0; right: 0; left: 0; display: flex; height: 30px;
+              background: #ffffff; border-bottom: 1px solid #d0d0d0; }
+.wg-menu { position: relative; }
+.wg-menu-title, .wg-menu-item { height: 30px; padding: 0 12px; border: 0; background: transparent;
+                                color: inherit; font: inherit; text-align: left; }
+.wg-menu-title:hover, .wg-menu.open .wg-menu-title, .wg-menu-item:hover { background: #e9e9e9; }
+.wg-menu-title:focus-visible, .wg-menu-item:focus-visible { outline: 1px solid #007acc; outline-offset: -1px; }
+.wg-menu-title:disabled { opacity: 0.55; }
+.wg-menu-items { position: absolute; display: none; top: 30px; left: 0; min-width: 160px; padding: 4px 0;
+                 background: #ffffff; border: 1px solid #c8c8c8; box-shadow: 0 4px 10px #00000022; }
+.wg-menu.open .wg-menu-items { display: block; }
+.wg-menu-item { display: grid; grid-template-columns: 1fr auto; column-gap: 24px; align-items: center;
+                width: 100%; white-space: nowrap; }
+.wg-menu-shortcut { color: #666666; }
+.wg-menu-separator { height: 1px; margin: 4px 0; background: #e0e0e0; }
+
+/* Sidebar */
+.wg-sidebar { position: absolute; z-index: 5; top: 0; bottom: 0; left: 0; display: flex; }
+.wg-has-menu .wg-sidebar { top: 30px; }
+.wg-strip { display: flex; flex-direction: column; justify-content: space-between; width: 48px;
+            background: #e4e4e4; }
+.wg-strip-button { position: relative; display: grid; place-items: center; width: 48px; height: 48px;
+                   padding: 0; border: 0; background: transparent; opacity: 0.6; cursor: pointer; }
+.wg-strip-button:hover, .wg-strip-button.active { opacity: 1; }
+.wg-strip-button.active::before { content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 2px;
+                                  background: #007acc; }
+.wg-strip-button img { width: 24px; height: 24px; }
+.wg-side-panel { position: relative; display: flex; flex-direction: column; background: #f3f3f3;
+                 border-right: 1px solid #d0d0d0; }
+.wg-side-header { display: flex; align-items: center; height: 35px; padding: 0 8px 0 20px; font-size: 11px;
+                  font-weight: 600; text-transform: uppercase; }
+.wg-side-title { flex: 1; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.wg-side-actions { display: flex; gap: 2px; }
+.wg-side-action { display: grid; place-items: center; width: 22px; height: 22px; padding: 0; border: 0;
+                  border-radius: 4px; background: transparent; cursor: pointer; }
+.wg-side-action:hover { background: #dcdcdc; }
+.wg-side-action img { width: 16px; height: 16px; }
+.wg-side-pages { position: relative; flex: 1; }
+.wg-side-page { position: absolute; inset: 0; padding: 16px; overflow: auto; }
+.wg-side-edge { position: absolute; z-index: 1; top: 0; right: -3px; bottom: 0; width: 6px; cursor: ew-resize; }
+.wg-side-panel[hidden], .wg-side-actions[hidden], .wg-side-page[hidden] { display: none; }

@@ -1,0 +1,6 @@
+# xDev 7.0.0 RDD
+*.a
+*.dbf
+*.exe
+lib
+tmp

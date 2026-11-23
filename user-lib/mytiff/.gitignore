@@ -1,0 +1,6 @@
+# xDev MyTiff
+*.a
+*.exe
+build/
+lib
+tmp

@@ -1,0 +1,6 @@
+# xDev GTSDL3
+*.a
+*.exe
+build/
+lib
+tmp

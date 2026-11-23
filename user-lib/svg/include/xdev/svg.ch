@@ -1,0 +1,28 @@
+/*
+ * Copyright (c) 2024-2026 xDev-Language
+ *
+ * Library...: xDev SVG
+ * File......: svg.ch
+ *
+ */
+
+#ifndef XDEV_SVG_CH
+#define XDEV_SVG_CH
+
+#define FONT_WEIGHT_THIN        100
+#define FONT_WEIGHT_EXTRA_LIGHT 200
+#define FONT_WEIGHT_LIGHT       300
+#define FONT_WEIGHT_NORMAL      400
+#define FONT_WEIGHT_MEDIUM      500
+#define FONT_WEIGHT_SEMI_BOLD   600
+#define FONT_WEIGHT_BOLD        700
+#define FONT_WEIGHT_EXTRA_BOLD  800
+#define FONT_WEIGHT_BLACK       900
+
+#define SVG_ALIGN_LEFT          0
+#define SVG_ALIGN_CENTER        1
+#define SVG_ALIGN_RIGHT         2
+
+#define PI 3.14159265358979323846
+
+#endif /* XDEV_SVG_CH */
