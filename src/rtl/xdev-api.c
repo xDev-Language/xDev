@@ -5853,6 +5853,15 @@ X_FUNC( SAYSPREAD )
    x_screenSaySpread( ctx );
 }
 
+// Duplicate a structure: nested structures and arrays are copied, texts, hashes and objects are shared
+// SClone( stSource ) --> stDuplicate
+X_FUNC( SCLONE )
+{
+   X_ARGCHECK( ctx, X_ISSTRUCT( ctx, 1 ), "SCLONE" );
+
+   x_structSClone( ctx );
+}
+
 // Return the numeric color attribute for a specified coordinate on the screen
 // ScreenAttr( [nRow], [nCol] ) --> nAttribute
 X_FUNC( SCREENATTR )

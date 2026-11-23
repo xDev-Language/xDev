@@ -17,7 +17,7 @@
 
 /* Error messages too long for one line of code */
 static const char *s_mixedSigns = " wymaga jawnego CAST; brak typu ze znakiem mieszczacego oba zakresy";
-static const char *s_noStruct = ": STRUCT wymaga zgodnego typu struktury; nie mozna przekazac przez ANY ani wartosc";
+static const char *s_noStruct = ": STRUCT przechodzi tylko do tej samej struktury albo do ANY";
 static const char *s_callbackKind = ": CALLBACK PROCEDURE wymaga PROCEDURE, a CALLBACK FUNCTION wymaga FUNCTION";
 static const char *s_callbackParameter = "CALLBACK: parametr wymaga liczby, LOGIC, PTR albo PSZ: ";
 static const char *s_callbackResult = "CALLBACK FUNCTION: wynik wymaga liczby, LOGIC albo PTR; PSZ jest niedozwolony";
@@ -381,6 +381,12 @@ static bool s_structPointer( const X_EXPR &arg, X_DECL_TYPE parameter, const std
    return parameter == X_DECL_TYPE::STRUCT && parameterName == arg.typeName;
 }
 
+/* A STRUCT that lies in the fields of another STRUCT: a field or an element of an array field */
+static bool s_nestedStruct( const X_EXPR &expr )
+{
+   return expr.type == X_DECL_TYPE::STRUCT && ( expr.structFieldAccess || expr.structArrayIndex );
+}
+
 /* A typed parameter after the last argument has no default value */
 static bool s_omittedTyped( const X_FUNCTION *function, size_t count )
 {
@@ -733,8 +739,17 @@ private:
       if( source == target )
          return true;
 
+      /* A STRUCT goes to ANY and back, checked at runtime; coerce() compares the names of two STRUCTs */
       if( source == X_DECL_TYPE::STRUCT || target == X_DECL_TYPE::STRUCT )
-         return fail( line, context + s_noStruct );
+      {
+         if( source != X_DECL_TYPE::ANY && target != X_DECL_TYPE::ANY )
+            return fail( line, context + s_noStruct );
+
+         convert.checkType = source == X_DECL_TYPE::ANY;
+         result = convert;
+
+         return true;
+      }
 
       if( !s_convertible( source, target, cast ) )
       {
@@ -807,7 +822,32 @@ private:
       return fail( expr.line, context + ": niezgodne typy OBJECT " + expr.typeName + " i " + required );
    }
 
-   /* expr gets the conversion to target; CALLBACK, STRUCT and OBJECT need the same named type */
+   /* STRUCT takes the same STRUCT, or ANY checked at runtime; a STRUCT goes to ANY */
+   bool coerceStruct( X_EXPR &expr, X_DECL_TYPE target, const std::string &context, const std::string &targetName )
+   {
+      /* A nested STRUCT as a whole is not a value: constitution part II, Structures */
+      if( s_nestedStruct( expr ) )
+         return fail( expr.line, context + ": cale pole STRUCT nie jest wartoscia; uzyj jego pol albo SClone()" );
+
+      if( expr.type == X_DECL_TYPE::STRUCT && target == X_DECL_TYPE::STRUCT )
+      {
+         if( !targetName.empty() && expr.typeName != targetName )
+            return fail( expr.line, context + ": niezgodne typy STRUCT " + expr.typeName + " i " + targetName );
+
+         expr.conversion.reset();
+         return true;
+      }
+
+      if( !conversion( expr.type, target, expr.line, context, expr.conversion ) )
+         return false;
+
+      if( target == X_DECL_TYPE::STRUCT )
+         expr.conversionStruct = targetName;
+
+      return true;
+   }
+
+   /* expr gets the conversion to target; CALLBACK needs the same named type, STRUCT and OBJECT also take ANY */
    bool coerce( X_EXPR &expr, X_DECL_TYPE target, const std::string &context, bool cast = false,
                 const std::string &targetName = {} )
    {
@@ -818,16 +858,7 @@ private:
          return fail( expr.line, context + ": niezgodny typ CALLBACK " + expr.typeName + " i " + targetName );
 
       if( expr.type == X_DECL_TYPE::STRUCT || target == X_DECL_TYPE::STRUCT )
-      {
-         if( expr.type != X_DECL_TYPE::STRUCT || target != X_DECL_TYPE::STRUCT )
-            return fail( expr.line, context + ": STRUCT nie moze przejsc do ANY ani innego typu" );
-
-         if( !targetName.empty() && expr.typeName != targetName )
-            return fail( expr.line, context + ": niezgodne typy STRUCT " + expr.typeName + " i " + targetName );
-
-         expr.conversion.reset();
-         return true;
-      }
+         return coerceStruct( expr, target, context, targetName );
 
       if( expr.type == X_DECL_TYPE::OBJECT || target == X_DECL_TYPE::OBJECT )
          return coerceObject( expr, target, context, targetName );
@@ -846,9 +877,6 @@ private:
 
       if( type == X_DECL_TYPE::PSZ )
          return fail( decl.line, "PSZ jest typem ABI DLL; uzyj STRING dla zmiennej xDev" );
-
-      if( type == X_DECL_TYPE::STRUCT && stmt.kind == X_STMT_KIND::STATIC )
-         return fail( decl.line, "STRUCT obslugiwany jest obecnie jako LOCAL" );
 
       /* Module STATIC are registered in registerStatics() */
       if( stmt.kind != X_STMT_KIND::STATIC || !moduleScope )
@@ -1037,8 +1065,8 @@ private:
    {
       for( const X_EXPR_PTR &arg : expr.args )
       {
-         if( arg->type == X_DECL_TYPE::STRUCT )
-            return fail( expr.line, "STRUCT nie moze byc elementem ARRAY" );
+         if( s_nestedStruct( *arg ) )
+            return fail( arg->line, "cale pole STRUCT nie jest wartoscia; uzyj jego pol albo SClone()" );
       }
 
       expr.type = X_DECL_TYPE::ARRAY;
@@ -1212,6 +1240,9 @@ private:
       X_EXPR &value = *expr.args[1];
       const X_DECL_TYPE type = target.type;
 
+      if( s_nestedStruct( target ) )
+         return fail( expr.line, "cale pole STRUCT nie jest wartoscia; przypisz jego pola" );
+
       if( expr.assignOp == X_ASSIGN_OP::SET )
       {
          if( !coerce( value, type, "przypisanie", false, target.typeName ) )
@@ -1278,6 +1309,13 @@ private:
          return true;
       }
 
+      /* Two different STRUCTs give ANY */
+      if( left == right && left == X_DECL_TYPE::STRUCT && first.typeName != second.typeName )
+      {
+         expr.type = X_DECL_TYPE::ANY;
+         return true;
+      }
+
       if( left == right )
       {
          expr.type = left;
@@ -1307,9 +1345,6 @@ private:
 
       if( !coerce( *expr.args[0], X_DECL_TYPE::LOGIC, "warunek IIF" ) )
          return false;
-
-      if( first.type == X_DECL_TYPE::STRUCT || second.type == X_DECL_TYPE::STRUCT )
-         return fail( expr.line, "IIF nie obsluguje STRUCT; przypisz strukture bezposrednio" );
 
       expr.nativeType = first.nativeType || second.nativeType;
 
@@ -1375,6 +1410,13 @@ private:
       const bool reference = i < expr.argByReference.size() && expr.argByReference[i];
       const std::string context = "argument " + std::to_string( i + 1 ) + " funkcji " + expr.text;
 
+      if( reference && dll && arg.type == X_DECL_TYPE::STRUCT && withoutCLayout( arg.typeName ) )
+         return fail( arg.line, context + ": STRUCT z polem spoza C nie ma ukladu C i nie idzie do DLL" );
+
+      /* A STRUCT goes to a DLL by @st: constitution part II, Structures */
+      if( dll && !reference && parameter == X_DECL_TYPE::STRUCT )
+         return fail( arg.line, context + ": STRUCT idzie do DLL przez @" );
+
       if( reference && dll && s_structPointer( arg, parameter, parameterName ) )
          return true;
 
@@ -1433,6 +1475,15 @@ private:
 
       if( found != m_functions.end() )
          function = found->second;
+
+      /* SClone( st.field ) copies a nested STRUCT, which is not a value by itself: constitution part II, Structures */
+      if( key == "SCLONE" && !function && expr.args.size() == 1 && s_nestedStruct( *expr.args[0] ) )
+      {
+         expr.type = X_DECL_TYPE::STRUCT;
+         expr.typeName = expr.args[0]->typeName;
+         expr.nativeType = true;
+         return true;
+      }
 
       if( isDll && expr.args.size() != dll->second->params.size() )
       {
@@ -1576,8 +1627,11 @@ private:
          return fail( expr.line, "brak pola " + fieldName + " w STRUCT " + structName );
 
       field = &structure->second->fields[index];
-      if( setting && field->arrayCount != 0 )
+      if( setting && field->arrayCount != 0 && !field->text )
          return fail( expr.line, "tablica STRUCT wymaga przypisania elementow" );
+
+      if( setting && field->type == X_DECL_TYPE::STRUCT )
+         return fail( expr.line, "cale pole STRUCT nie jest wartoscia; przypisz jego pola" );
 
       expr.structFieldAccess = true;
       expr.structFieldIndex = index;
@@ -1595,7 +1649,14 @@ private:
          expr.arrayElementTypeName = field->typeName;
       }
 
-      if( setting && !coerce( *expr.args[1], field->type, "przypisanie pola STRUCT", false, field->typeName ) )
+      /* A field[ N ] AS CHAR as a whole is a STRING, as char[ N ] in C: constitution part II, Structures */
+      if( field->text )
+      {
+         expr.type = X_DECL_TYPE::STRING;
+         expr.structText = true;
+      }
+
+      if( setting && !coerce( *expr.args[1], expr.type, "przypisanie pola STRUCT", false, field->typeName ) )
          return false;
 
       return true;
@@ -1941,6 +2002,9 @@ private:
          if( parameter.second == X_DECL_TYPE::STRUCT && ( !known || !m_structs.count( named->second ) ) )
             return fail( function.line, "DLL FUNCTION: nieznany typ STRUCT parametru: " + parameter.first );
 
+         if( parameter.second == X_DECL_TYPE::STRUCT && withoutCLayout( named->second ) )
+            return fail( function.line, "DLL FUNCTION: STRUCT z polem spoza C nie ma ukladu C: " + parameter.first );
+
          if( parameter.second == X_DECL_TYPE::CALLBACK && ( !known || !m_callbacks.count( named->second ) ) )
             return fail( function.line, "DLL FUNCTION/PROCEDURE: nieznany typ CALLBACK parametru: " + parameter.first );
       }
@@ -1976,15 +2040,39 @@ private:
       return true;
    }
 
-   /* PSZ is for DLL only; a function returns a known STRUCT by value, a method does not; OBJECT names a
-      known class */
+   /* A STRUCT with a field of a type outside C, also in a nested STRUCT, has no C layout */
+   bool withoutCLayout( const std::string &name ) const
+   {
+      const auto structure = m_structs.find( name );
+
+      if( structure == m_structs.end() )
+         return false;
+
+      for( const X_STRUCT_FIELD &field : structure->second->fields )
+      {
+         if( field.type == X_DECL_TYPE::STRUCT && withoutCLayout( field.typeName ) )
+            return true;
+
+         if( field.type != X_DECL_TYPE::STRUCT && !s_abiType( field.type ) )
+            return true;
+      }
+
+      return false;
+   }
+
+   /* The parameter name of a function has the type of a declared STRUCT */
+   bool knownStruct( const X_FUNCTION &function, const std::string &parameter ) const
+   {
+      const auto named = function.paramTypeNames.find( parameter );
+
+      return named != function.paramTypeNames.end() && m_structs.count( named->second ) != 0;
+   }
+
+   /* PSZ is for DLL only; a STRUCT of a function or a method is a known STRUCT; OBJECT names a known class */
    bool functionTypes( const X_FUNCTION &function )
    {
       if( function.resultType == X_DECL_TYPE::PSZ )
          return fail( function.line, "PSZ moze byc wynikiem DLL FUNCTION; funkcja xDev powinna zwracac STRING" );
-
-      if( function.resultType == X_DECL_TYPE::STRUCT && !function.methodKind.empty() )
-         return fail( function.line, "metoda nie moze zwracac STRUCT" );
 
       if( function.resultType == X_DECL_TYPE::STRUCT && !m_structs.count( function.resultTypeName ) )
          return fail( function.line, "nieznany STRUCT wyniku: " + function.resultTypeName );
@@ -1999,8 +2087,8 @@ private:
          if( parameter.second == X_DECL_TYPE::PSZ )
             return fail( function.line, "PSZ jest typem ABI DLL; parametr funkcji xDev powinien miec STRING" );
 
-         if( parameter.second == X_DECL_TYPE::STRUCT )
-            return fail( function.line, "parametry STRUCT funkcji xDev przez wartosc sa odlozone" );
+         if( parameter.second == X_DECL_TYPE::STRUCT && !knownStruct( function, parameter.first ) )
+            return fail( function.line, "nieznany STRUCT parametru: " + parameter.first );
 
          if( parameter.second != X_DECL_TYPE::OBJECT || named == function.paramTypeNames.end() )
             continue;

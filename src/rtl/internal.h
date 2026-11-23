@@ -28,6 +28,7 @@ typedef struct _X_CALL_CTX X_CALL_CTX;
 typedef struct _X_ERROR_DEF X_ERROR_DEF;
 typedef struct _X_ERROR X_ERROR;
 typedef struct _X_GC_FUNCS X_GC_FUNCS;
+typedef struct _X_STRUCT_TYPE X_STRUCT_TYPE;
 
 typedef struct
 {
@@ -56,6 +57,7 @@ enum
    X_IT_POINTER = 0x08000,
    X_IT_STRING = 0x20000,
    X_IT_HASH = 0x40000,
+   X_IT_STRUCT = 0x80000,
    X_IT_GCFLAG = 0x100000,
    X_IT_GCPOINTER = X_IT_POINTER | X_IT_GCFLAG
 };
@@ -136,6 +138,7 @@ struct _X_ITEM
       void *pArr;
       void *pBlock;
       void *pPointer;
+      void *structure;
    } u;
 };
 
@@ -209,6 +212,18 @@ struct _X_GC_FUNCS
 {
    X_GARBAGE_FUNC_PTR release;
    X_GARBAGE_FUNC_PTR mark;
+};
+
+/* The layout of a STRUCT type, made by the compiler: the size of the fields and the offsets of the STRING and
+   X_ITEM fields, also of the fields of nested STRUCTs */
+struct _X_STRUCT_TYPE
+{
+   const char *name;
+   size_t size;
+   const size_t *strings;
+   size_t stringCount;
+   const size_t *items;
+   size_t itemCount;
 };
 
 /* The statistics of x_xstats() */
@@ -802,6 +817,8 @@ void x_boxNativeStore( X_BOX *box, uint64_t value );
 void x_boxNativeBind( X_BOX *box, const X_ITEM *value, int byReference );
 void x_boxNativeStorage( X_BOX *box, void *storage );
 void x_stringStore( X_STRING *storage, const char *data, size_t length );
+int x_structTextStore( char *field, size_t size, const char *data, size_t length );
+size_t x_structTextLength( const char *field, size_t size );
 int x_stringAppend( X_STRING *storage, const char *data, size_t length );
 void x_boxNativeStringStore( X_BOX *box, const char *data, size_t length );
 void x_itemBlockInto( X_CALL_CTX *ctx, X_ITEM *destination, X_BLOCKFUNC function, X_ITEM *const *env, int envLen );
@@ -1014,6 +1031,21 @@ void x_hashHGetPairAt( X_CALL_CTX *ctx );
 void x_hashHGetVaaPos( X_CALL_CTX *ctx );
 void x_hashHGetValueAt( X_CALL_CTX *ctx );
 void x_hashHSetValueAt( X_CALL_CTX *ctx );
+
+/* ---------------------------------------------------------------------------------------------
+   Structures
+   --------------------------------------------------------------------------------------------- */
+
+void *x_structNew( const X_STRUCT_TYPE *type );
+void x_structRetain( void *structure );
+void x_structRelease( void *structure );
+void x_itemPutStruct( X_ITEM *item, const X_STRUCT_TYPE *type );
+void *x_structFields( const X_ITEM *item );
+int x_structIs( const X_ITEM *item, const char *name );
+void x_structCopy( X_ITEM *result, const X_STRUCT_TYPE *type, const void *fields );
+
+/* The body of SClone() */
+void x_structSClone( X_CALL_CTX *ctx );
 
 /* ---------------------------------------------------------------------------------------------
    Helpers of the public API in xdev-api.c
@@ -1301,6 +1333,7 @@ int x_errorCondition( const X_ITEM *value );
 #define X_IS_OBJECT( p ) x_arrayIsObject( p )
 #define X_IS_POINTER( p ) ( ( X_ITEM_TYPERAW( p ) & X_IT_POINTER ) != 0 )
 #define X_IS_STRING( p ) ( ( X_ITEM_TYPERAW( p ) & X_IT_STRING ) != 0 )
+#define X_IS_STRUCT( p ) ( X_ITEM_TYPERAW( p ) == X_IT_STRUCT )
 
 /* The type of argument n */
 #define X_ISARRAY( ctx, n ) ( x_param( ctx, n, X_IT_ARRAY ) != NULL )
@@ -1314,6 +1347,7 @@ int x_errorCondition( const X_ITEM *value );
 #define X_ISNUM( ctx, n ) ( x_param( ctx, n, X_IT_NUMERIC ) != NULL )
 #define X_ISOBJECT( ctx, n ) ( x_extIsObject( ctx, n ) )
 #define X_ISPOINTER( ctx, n ) ( x_param( ctx, n, X_IT_POINTER ) != NULL )
+#define X_ISSTRUCT( ctx, n ) ( x_param( ctx, n, X_IT_STRUCT ) != NULL )
 
 #define X_ITEM_NIL_INIT { X_IT_NIL, { 0 } }
 #define X_GARBAGE_FUNC( NAME ) void NAME( void *Cargo )

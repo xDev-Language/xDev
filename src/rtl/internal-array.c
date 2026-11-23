@@ -1681,6 +1681,85 @@ void x_arrayReverseScanCall( X_CALL_CTX *ctx )
 }
 
 /* ---------------------------------------------------------------------------------------------
+   Structures
+   --------------------------------------------------------------------------------------------- */
+
+/* A new STRUCT with one reference; zero fields are NIL items and empty STRING texts */
+void *x_structNew( const X_STRUCT_TYPE *type )
+{
+   X_STRUCT *structure = ( X_STRUCT * )x_xgrabz( sizeof( X_STRUCT ) + type->size );
+
+   structure->type = type;
+   structure->refs = 1;
+   x_gcRegister( structure, &structure->refs, X_GC_STRUCT );
+
+   return structure;
+}
+
+/* A new STRUCT with zero fields in an item */
+void x_itemPutStruct( X_ITEM *item, const X_STRUCT_TYPE *type )
+{
+   x_itemReplace( item, ( X_ITEM ){ X_IT_STRUCT, { .structure = x_structNew( type ) } } );
+}
+
+/* The fields of the STRUCT in an item; NULL for an item without a STRUCT */
+void *x_structFields( const X_ITEM *item )
+{
+   if( !X_IS_STRUCT( item ) )
+      return NULL;
+
+   return ( ( X_STRUCT * )item->u.structure )->fields;
+}
+
+/* Is the item a STRUCT of the type with this name? */
+int x_structIs( const X_ITEM *item, const char *name )
+{
+   if( !X_IS_STRUCT( item ) )
+      return 0;
+
+   return strcmp( ( ( const X_STRUCT * )item->u.structure )->type->name, name ) == 0;
+}
+
+/* A new STRUCT with a copy of the fields: nested STRUCTs lie in the fields and are copied with them, STRING
+   texts are shared, the X_ITEM fields are cloned together as the elements of one array by AClone() */
+void x_structCopy( X_ITEM *result, const X_STRUCT_TYPE *type, const void *fields )
+{
+   X_ITEM items __attribute__( ( cleanup( x_itemClear ) ) ) = X_ITEM_NIL_INIT;
+   X_ITEM clone __attribute__( ( cleanup( x_itemClear ) ) ) = X_ITEM_NIL_INIT;
+   X_STRUCT *copy = ( X_STRUCT * )x_structNew( type );
+   const unsigned char *source = ( const unsigned char * )fields;
+   size_t i;
+
+   x_itemReplace( result, ( X_ITEM ){ X_IT_STRUCT, { .structure = copy } } );
+
+   /* The copied X_ITEM fields hold no references yet: they are NIL until the clones come */
+   memcpy( copy->fields, source, type->size );
+   for( i = 0; i < type->itemCount; ++i )
+      *( X_ITEM * )( copy->fields + type->items[i] ) = ( X_ITEM )X_ITEM_NIL_INIT;
+
+   for( i = 0; i < type->stringCount; ++i )
+      x_xretain( ( ( X_STRING * )( copy->fields + type->strings[i] ) )->data );
+
+   x_arrayNew( &items, ( int64_t )type->itemCount );
+   for( i = 0; i < type->itemCount; ++i )
+      x_arraySet( &items, i + 1, ( const X_ITEM * )( source + type->items[i] ) );
+
+   x_arrayClone( &clone, &items );
+   for( i = 0; i < type->itemCount; ++i )
+      x_arrayGet( &clone, i + 1, ( X_ITEM * )( copy->fields + type->items[i] ) );
+}
+
+/* SClone(): a new STRUCT with a copy of the fields */
+void x_structSClone( X_CALL_CTX *ctx )
+{
+   X_ITEM result __attribute__( ( cleanup( x_itemClear ) ) ) = X_ITEM_NIL_INIT;
+   const X_STRUCT *source = ( const X_STRUCT * )x_paritem( ctx, 1 )->u.structure;
+
+   x_structCopy( &result, source->type, source->fields );
+   x_itemReturn( ctx, &result );
+}
+
+/* ---------------------------------------------------------------------------------------------
    Array and hash functions of the API
    --------------------------------------------------------------------------------------------- */
 

@@ -164,6 +164,8 @@ struct X_EXPR
    X_DECL_TYPE operationType = X_DECL_TYPE::ANY;
    std::optional<X_TYPE_CONVERSION> conversion;
    std::string conversionClass;
+   // ANY -> STRUCT: the STRUCT the runtime checks
+   std::string conversionStruct;
    std::optional<X_TYPE_CONVERSION> storeConversion;
    bool checkOverflow = false;
    int line = 0;
@@ -177,6 +179,8 @@ struct X_EXPR
    bool structFieldAccess = false;
    bool dotMemberAccess = false;
    bool structArrayIndex = false;
+   // a field[ N ] AS CHAR read or written as a whole is a text, as char[ N ] in C
+   bool structText = false;
    size_t structFieldIndex = 0;
    uint64_t fixedArrayCount = 0;
    X_DECL_TYPE arrayElementType = X_DECL_TYPE::ANY;
@@ -327,6 +331,8 @@ struct X_STRUCT_FIELD
    X_DECL_TYPE type = X_DECL_TYPE::ANY;
    std::string typeName;
    uint64_t arrayCount = 0;
+   // name[ N ] AS CHAR: N bytes of UTF-8 text with a zero at the end; one byte is UINT8
+   bool text = false;
 };
 
 struct X_STRUCT_DECL

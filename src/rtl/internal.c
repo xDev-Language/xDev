@@ -467,6 +467,17 @@ static void s_gcClearNode( X_GC_NODE *node )
 
       x_itemClear( &hash->defaultValue );
    }
+   else if( node->kind == X_GC_STRUCT )
+   {
+      X_STRUCT *structure = ( X_STRUCT * )node->value;
+      size_t i;
+
+      for( i = 0; i < structure->type->stringCount; ++i )
+         x_xrelease( ( ( X_STRING * )( structure->fields + structure->type->strings[i] ) )->data );
+
+      for( i = 0; i < structure->type->itemCount; ++i )
+         x_itemClear( ( X_ITEM * )( structure->fields + structure->type->items[i] ) );
+   }
    else if( node->kind == X_GC_BOX )
    {
       X_BOX *box = ( X_BOX * )node->value;
@@ -665,6 +676,8 @@ void x_gcMarkItem( const X_ITEM *item )
       x_gcMark( item->u.pArr );
    else if( item->nType == X_IT_HASH )
       x_gcMark( item->u.pPointer );
+   else if( item->nType == X_IT_STRUCT )
+      x_gcMark( item->u.structure );
    else if( item->nType == X_IT_BLOCK )
       x_gcMark( item->u.pBlock );
    else if( item->nType == X_IT_GCPOINTER )
@@ -706,6 +719,14 @@ static void s_gcVisit( X_GC_NODE *node )
       }
 
       x_gcMarkItem( &hash->defaultValue );
+   }
+   else if( node->kind == X_GC_STRUCT )
+   {
+      X_STRUCT *structure = ( X_STRUCT * )node->value;
+      size_t i;
+
+      for( i = 0; i < structure->type->itemCount; ++i )
+         x_gcMarkItem( ( X_ITEM * )( structure->fields + structure->type->items[i] ) );
    }
    else if( node->kind == X_GC_BOX )
    {
@@ -1957,6 +1978,32 @@ void x_stringStore( X_STRING *storage, const char *data, size_t length )
    storage->len = length;
 }
 
+/* Put a text into a field[ size ] AS CHAR of a STRUCT, the rest becomes zero; 0 when the text with its zero
+   does not fit or holds a zero byte */
+int x_structTextStore( char *field, size_t size, const char *data, size_t length )
+{
+   if( length >= size || ( length != 0 && memchr( data, '\0', length ) != NULL ) )
+      return 0;
+
+   if( length != 0 )
+      memcpy( field, data, length );
+
+   memset( field + length, 0, size - length );
+
+   return 1;
+}
+
+/* The length of the text in a field[ size ] AS CHAR of a STRUCT: the bytes before the first zero */
+size_t x_structTextLength( const char *field, size_t size )
+{
+   const char *end = ( const char * )memchr( field, '\0', size );
+
+   if( end == NULL )
+      return size;
+
+   return ( size_t )( end - field );
+}
+
 /* Append to a string in place when it is the only owner of its buffer; the buffer grows with a
    reserve, so repeated appends stay linear. Returns 0 and changes nothing when the buffer is shared. */
 int x_stringAppend( X_STRING *storage, const char *data, size_t length )
@@ -2417,6 +2464,10 @@ void x_itemClear( X_ITEM *item )
       s_gcReleased( old.u.pPointer, --( ( X_HASH * )old.u.pPointer )->nRefs );
       break;
 
+   case X_IT_STRUCT:
+      x_structRelease( old.u.structure );
+      break;
+
    case X_IT_BLOCK:
       s_blockRelease( ( X_BLOCK * )old.u.pBlock );
       break;
@@ -2482,6 +2533,12 @@ void x_itemCopy( X_ITEM *destination, const X_ITEM *source )
       ++( ( X_HASH * )copy.u.pPointer )->nRefs;
       break;
 
+   case X_IT_STRUCT:
+      copy.nType = X_IT_STRUCT;
+      copy.u.structure = source->u.structure;
+      x_structRetain( copy.u.structure );
+      break;
+
    case X_IT_BLOCK:
       copy.nType = X_IT_BLOCK;
       copy.u.pBlock = source->u.pBlock;
@@ -2503,6 +2560,18 @@ void x_itemCopy( X_ITEM *destination, const X_ITEM *source )
    }
 
    x_itemReplace( destination, copy );
+}
+
+/* Add a reference to a STRUCT */
+void x_structRetain( void *structure )
+{
+   ++( ( X_STRUCT * )structure )->refs;
+}
+
+/* Drop a reference to a STRUCT; the last one releases its fields and frees it */
+void x_structRelease( void *structure )
+{
+   s_gcReleased( structure, --( ( X_STRUCT * )structure )->refs );
 }
 
 /* A new item allocated by x_xgrab(), with a copy of source or NIL */
@@ -5174,6 +5243,8 @@ void x_itemValType( X_CALL_CTX *ctx )
       type = "A";
    else if( X_IS_HASH( item ) )
       type = "H";
+   else if( X_IS_STRUCT( item ) )
+      type = "S";
    else if( X_IS_BLOCK( item ) )
       type = "B";
    else if( X_IS_POINTER( item ) )

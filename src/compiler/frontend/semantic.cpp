@@ -296,9 +296,6 @@ private:
       if( m_blocks.empty() || symbol->kind == X_BINDING_KIND::STATIC )
          return true;
 
-      if( symbol->type == X_DECL_TYPE::STRUCT )
-         return fail( line, "STRUCT nie moze byc przechwycony przez BLOCK" );
-
       for( X_EXPR *block : m_blocks )
       {
          std::vector<std::string> &captures = block->captures;

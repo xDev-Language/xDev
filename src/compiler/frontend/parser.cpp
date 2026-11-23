@@ -4349,15 +4349,6 @@ static bool s_isDottedWord( const std::string &key )
    return key == "AND" || key == "OR";
 }
 
-/* STRUCT fields: numbers, LOGIC, PTR and other STRUCTs */
-static bool s_structFieldType( X_DECL_TYPE type )
-{
-   if( type >= X_DECL_TYPE::INT8 && type <= X_DECL_TYPE::FLOAT64 )
-      return true;
-
-   return type == X_DECL_TYPE::STRUCT || type == X_DECL_TYPE::PTR || type == X_DECL_TYPE::LOGIC;
-}
-
 static bool s_validCount( uint64_t count )
 {
    return count != 0 && count <= static_cast<uint64_t>( std::numeric_limits<int64_t>::max() );
@@ -4637,22 +4628,26 @@ bool X_PARSER::parseStructField( const X_STRUCT_DECL &structure, X_STRUCT_FIELD 
    if( match( TOK_LBRACKET ) && !parseFieldCount( field ) )
       return false;
 
+   /* name[ N ] AS CHAR is a text, as char[ N ] in C; name AS CHAR is one byte, kept as UINT8 */
+   if( is( TOK_AS ) && peek( 1 ) == TOK_IDENT && s_upper( value( 1 ) ) == "CHAR" )
+   {
+      m_pos += 2;
+      m_hasTypeAnnotations = true;
+      field.type = X_DECL_TYPE::UINT8;
+      field.text = field.arrayCount != 0;
+      return expectLineEnd( "oczekiwano konca linii po polu STRUCT" );
+   }
+
    if( !is( TOK_AS ) || !parseType( field.type, &field.typeName ) )
    {
       fail( "pole STRUCT wymaga typu po AS" );
       return false;
    }
 
-   if( !s_structFieldType( field.type ) )
-   {
-      fail( "nieobslugiwany typ pola STRUCT" );
-      return false;
-   }
-
    return expectLineEnd( "oczekiwano konca linii po polu STRUCT" );
 }
 
-/* STRUCT Name ... ENDSTRUCT: fields with C types, laid out as in C */
+/* STRUCT Name ... ENDSTRUCT: fields of any type after AS, laid out as in C */
 bool X_PARSER::parseStruct( X_PROGRAM &program )
 {
    X_STRUCT_DECL structure;

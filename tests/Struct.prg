@@ -12,7 +12,7 @@
  * STRUCT
  *
  * $ONELINER$
- * Check native structure fields, fixed arrays, copies, function results and DLL arguments.
+ * Check structure fields, fixed arrays, shared values, SClone() copies, function results and DLL arguments.
  *
  * $DESCRIPTION$
  * The default program checks values and recoverable errors. On Windows it
@@ -86,12 +86,46 @@ DLL FUNCTION ToFileStamp( stamp AS SystemStamp, result AS FileStamp ) AS INT32 F
 DLL FUNCTION ToSystemStamp( stamp AS PTR, result AS PTR ) AS INT32 FROM FileTimeToSystemTime LIB "kernel32.dll"
 #endif
 
+STRUCT AppSettings
+   year    AS INT32
+   rate    AS FLOAT64
+   enabled AS LOGIC
+   origin  AS PointRecord
+ENDSTRUCT
+
+STRUCT TextRecord
+   year       AS INT32
+   firm[ 16 ] AS CHAR
+   letter     AS CHAR
+ENDSTRUCT
+
+STRUCT Person
+   name AS STRING
+   city AS STRING
+   age  AS INT32
+ENDSTRUCT
+
+STRUCT Team
+   leader       AS Person
+   members[ 3 ] AS Person
+   title        AS STRING
+ENDSTRUCT
+
+STATIC s_stSettings AS AppSettings
+STATIC s_stDefaults AS AppSettings
+STATIC s_stText     AS TextRecord
+STATIC s_stPerson   AS Person
+
 PROCEDURE Main()
 
    s_Scalars()
    s_Packets()
    s_DottedNames()
    s_Results()
+   s_Statics()
+   s_Parameters()
+   s_Texts()
+   s_Strings()
    s_ErrorCases()
 #if OS_WINDOWS
    s_NativeLayout()
@@ -156,7 +190,7 @@ RETURN
 STATIC PROCEDURE s_Packets()
 
    LOCAL packet   AS TestPacket
-   LOCAL snapshot AS TestPacket := packet
+   LOCAL snapshot AS TestPacket := SClone( packet )
    LOCAL point    AS PointRecord
    LOCAL n        AS INT
 
@@ -165,18 +199,19 @@ STATIC PROCEDURE s_Packets()
    packet.tail := 4000000000
    point.x := 10
    point.y := 20
-   packet.origin := point
+   packet.origin.x := point.x
+   packet.origin.y := point.y
 
    FOR n := 1 TO 2
-      packet.points[ n ] := point
-      packet.points[ n ].x += n
+      packet.points[ n ].x := point.x + n
+      packet.points[ n ].y := point.y
    NEXT
 
    FOR n := 1 TO 3
       packet.samples[ n ] := n * 4
    NEXT
 
-   snapshot := packet
+   snapshot := SClone( packet )
    packet.origin.y := -1
    packet.points[ 2 ].x := 99
    packet.samples[ 2 ] += 3
@@ -236,10 +271,12 @@ STATIC PROCEDURE s_Results()
    Check( "large result array element",    packet.points[ 2 ].x, 12 )
    Check( "large result fixed array",      packet.samples[ 3 ], 30 )
    Check( "large result trailing field",   packet.tail, 4000000000 )
-   packet.origin := s_MakePoint( -1, -2 )
-   Check( "result assigned to a field",    packet.origin.y, -2 )
-   packet.points[ 1 ] := s_MakePoint( 8, 9 )
-   Check( "result assigned to an element", packet.points[ 1 ].x, 8 )
+   other := s_MakePoint( -1, -2 )
+   packet.origin.y := other.y
+   Check( "result field set in a field",   packet.origin.y, -2 )
+   other := s_MakePoint( 8, 9 )
+   packet.points[ 1 ].x := other.x
+   Check( "result field set in an element", packet.points[ 1 ].x, 8 )
    s_MakePoint( 5, 6 )
    Check( "unused result",                 point.x, 1 )
    other := s_MakePoint( xValue, -2 )
@@ -271,9 +308,10 @@ STATIC FUNCTION s_MakePacket( nTag AS UINT8, nBase AS INT32 ) AS TestPacket
    LOCAL n      AS INT
 
    packet.tag := nTag
-   packet.origin := s_MakePoint( nBase, nBase + 1 )
+   packet.origin.x := nBase
+   packet.origin.y := nBase + 1
    FOR n := 1 TO 2
-      packet.points[ n ] := s_MakePoint( nBase + n, 0 )
+      packet.points[ n ].x := nBase + n
    NEXT
 
    FOR n := 1 TO 3
@@ -283,6 +321,227 @@ STATIC FUNCTION s_MakePacket( nTag AS UINT8, nBase AS INT32 ) AS TestPacket
    packet.tail := 4000000000
 
 RETURN packet
+
+STATIC PROCEDURE s_Statics()
+
+   LOCAL bYear := {|| s_stSettings.year }
+   LOCAL copy  AS AppSettings
+
+   Check( "STATIC STRUCT initially zero",     s_stSettings.year, 0 )
+   s_stSettings.year := 2027
+   s_stSettings.rate := 0.23
+   s_stSettings.enabled := .T.
+   s_stSettings.origin.y := 7
+   Check( "STATIC STRUCT seen by a function", s_SettingsYear(), 2027 )
+   s_SetSettingsYear( 2028 )
+   Check( "STATIC STRUCT set by a function",  s_stSettings.year, 2028 )
+   Check( "STATIC STRUCT in a code block",    Eval( bYear ), 2028 )
+   Check( "STATIC STRUCT nested field",       s_stSettings.origin.y, 7 )
+   copy := SClone( s_stSettings )
+   copy.year := 1
+   Check( "SClone of STATIC STRUCT is its own", s_stSettings.year, 2028 )
+   s_stDefaults := s_MakeSettings( 2026 )
+   Check( "STATIC STRUCT from a function",    s_stDefaults.year, 2026 )
+   Check( "STATIC STRUCT default rate",       s_stDefaults.rate, 0.23 )
+   Check( "function STATIC STRUCT first",     s_Counter(), 1 )
+   Check( "function STATIC STRUCT kept",      s_Counter(), 2 )
+
+RETURN
+
+STATIC FUNCTION s_MakeSettings( nYear AS INT32 ) AS AppSettings
+
+   LOCAL settings AS AppSettings
+
+   settings.year := nYear
+   settings.rate := 0.23
+   settings.enabled := .T.
+
+RETURN settings
+
+STATIC FUNCTION s_SettingsYear() AS INT32
+
+RETURN s_stSettings.year
+
+STATIC PROCEDURE s_SetSettingsYear( nYear AS INT32 )
+
+   s_stSettings.year := nYear
+
+RETURN
+
+STATIC FUNCTION s_Counter() AS INT
+
+   STATIC counter AS PointRecord
+
+   counter.x += 1
+
+RETURN counter.x
+
+STATIC PROCEDURE s_Parameters()
+
+   LOCAL point  AS PointRecord := s_MakePoint( 3, 4 )
+   LOCAL moved  AS PointRecord
+   LOCAL packet AS TestPacket
+
+   Check( "STRUCT parameter",                 s_PointSum( point ), 7 )
+   moved := s_MovePoint( point, 10 )
+   Check( "callee changes the shared STRUCT", point.x, 13 )
+   Check( "shared STRUCT returned",           moved.x, 13 )
+   Check( "result passed as a parameter",     s_PointSum( s_MakePoint( 20, 30 ) ), 50 )
+   packet.origin.x := 5
+   packet.origin.y := 6
+   Check( "SClone of a nested field",         s_PointSum( SClone( packet.origin ) ), 11 )
+   Check( "STATIC STRUCT as a parameter",     s_SettingsRate( s_stDefaults ), 0.23 )
+
+RETURN
+
+STATIC FUNCTION s_PointSum( point AS PointRecord ) AS INT
+
+RETURN point.x + point.y
+
+STATIC FUNCTION s_MovePoint( point AS PointRecord, nBy AS INT32 ) AS PointRecord
+
+   point.x += nBy
+
+RETURN point
+
+STATIC FUNCTION s_SettingsRate( settings AS AppSettings ) AS FLOAT64
+
+RETURN settings.rate
+
+STATIC PROCEDURE s_Texts()
+
+   LOCAL rec   AS TextRecord
+   LOCAL copy  AS TextRecord
+   LOCAL bOld  := ErrorBlock( {| oError | Break( oError ) } )
+   LOCAL oError
+   LOCAL nCode
+
+   Check( "CHAR text initially empty",        rec.firm, "" )
+   rec.firm := "Biuro"
+   Check( "CHAR text stored",                 rec.firm, "Biuro" )
+   Check( "CHAR text length in bytes",        Len( rec.firm ), 5 )
+   Check( "CHAR element is a byte",           rec.firm[ 1 ], 66 )
+   rec.firm[ 1 ] := 98
+   Check( "CHAR element changed",             rec.firm, "biuro" )
+   Check( "CHAR text comparison",             rec.firm == "biuro", .T. )
+   Check( "CHAR text joined",                 rec.firm + "!", "biuro!" )
+   rec.firm := "Łódź"
+   Check( "CHAR text in UTF-8",               Len( rec.firm ), 7 )
+   rec.firm := Replicate( "x", 15 )
+   Check( "CHAR text fills N - 1 bytes",      Len( rec.firm ), 15 )
+   copy := SClone( rec )
+   copy.firm := "kopia"
+   Check( "SClone has its own text",          rec.firm, Replicate( "x", 15 ) )
+   Check( "copied text",                      copy.firm, "kopia" )
+   Check( "CHAR text through a parameter",    s_TextOf( copy ), "kopia" )
+   rec.letter := 65
+   Check( "single CHAR is a byte",            rec.letter, 65 )
+   s_stText.firm := "Biuro Kowalska"
+   Check( "STATIC STRUCT CHAR text",          s_stText.firm, "Biuro Kowalska" )
+   rec.firm := ""
+   Check( "CHAR text emptied",                rec.firm, "" )
+
+   rec.firm := "ok"
+   nCode := 0
+   BEGIN SEQUENCE
+      rec.firm := Replicate( "x", 16 )
+   RECOVER USING oError
+      nCode := oError:SubCode
+   ENDSEQUENCE
+   Check( "CHAR text too long is an error",   nCode, 3105 )
+   Check( "CHAR text kept after the error",   rec.firm, "ok" )
+
+   nCode := 0
+   BEGIN SEQUENCE
+      rec.firm := "a" + Chr( 0 ) + "b"
+   RECOVER USING oError
+      nCode := oError:SubCode
+   ENDSEQUENCE
+   Check( "CHAR text with zero byte: error",  nCode, 3105 )
+   ErrorBlock( bOld )
+
+RETURN
+
+STATIC FUNCTION s_TextOf( rec AS TextRecord ) AS STRING
+
+RETURN rec.firm
+
+STATIC PROCEDURE s_Strings()
+
+   LOCAL person AS Person
+   LOCAL copy   AS Person
+   LOCAL team   AS Team
+   LOCAL other  AS Team
+   LOCAL n      AS INT
+
+   Check( "STRING field initially empty",     person.name, "" )
+   person.name := "Anna"
+   person.city := "Kraków"
+   person.age := 30
+   Check( "STRING field stored",              person.name + " " + person.city, "Anna Kraków" )
+   person.name := Replicate( "x", 1000 )
+   Check( "STRING field of any length",       Len( person.name ), 1000 )
+   person.name := "Anna"
+   person.name += "!"
+   Check( "STRING field +=",                  person.name, "Anna!" )
+   copy := SClone( person )
+   copy.name := "Ewa"
+   Check( "SClone has its own STRING",        person.name, "Anna!" )
+   Check( "copied STRING",                    copy.name + copy.city, "EwaKraków" )
+   person := person
+   Check( "STRUCT assigned to itself",        person.name, "Anna!" )
+   Check( "STRING field as a parameter",      s_PersonName( person ), "Anna!" )
+   s_RenamePerson( person )
+   Check( "callee changes the shared STRUCT", person.name, "Inna" )
+   person.name := "Anna!"
+   copy := s_MakePerson( "Jan", 40 )
+   Check( "STRING field of a result",         copy.name, "Jan" )
+   s_MakePerson( "unused", 1 )
+   FOR n := 1 TO 100
+      copy := s_MakePerson( "N" + LTrim( Str( n ) ), n )
+   NEXT
+   Check( "results in a loop",                copy.name, "N100" )
+   Check( "result as a parameter",            s_PersonName( s_MakePerson( "Ola", 5 ) ), "Ola" )
+
+   team.title := "Biuro"
+   team.leader.name := person.name
+   team.members[ 2 ].name := copy.name
+   team.members[ 3 ].name := "Piotr"
+   other := SClone( team )
+   other.leader.name := "Zmiana"
+   other.members[ 2 ].name := "Zmiana"
+   Check( "nested STRING field",              team.leader.name, "Anna!" )
+   Check( "STRING in an array element",       team.members[ 2 ].name, "N100" )
+   Check( "STRING set in an element",         team.members[ 3 ].name, "Piotr" )
+   Check( "copied nested STRING",             other.leader.name + other.title, "ZmianaBiuro" )
+
+   s_stPerson.name := "Statyczna"
+   Check( "STATIC STRUCT STRING field",       s_StaticName(), "Statyczna" )
+
+RETURN
+
+STATIC FUNCTION s_PersonName( person AS Person ) AS STRING
+
+RETURN person.name
+
+STATIC PROCEDURE s_RenamePerson( person AS Person )
+
+   person.name := "Inna"
+
+RETURN
+
+STATIC FUNCTION s_MakePerson( cName AS STRING, nAge AS INT32 ) AS Person
+
+   LOCAL person AS Person
+
+   person.name := cName
+   person.age := nAge
+
+RETURN person
+
+STATIC FUNCTION s_StaticName() AS STRING
+
+RETURN s_stPerson.name
 
 STATIC PROCEDURE s_ErrorCases()
 
@@ -431,54 +690,6 @@ STRUCT UntypedRecord
    value
 ENDSTRUCT
 
-#elif STRUCT_INVALID == 5
-// unsupported STRING field
-STRUCT BadMember
-   value AS STRING
-ENDSTRUCT
-
-#elif STRUCT_INVALID == 6
-// unsupported DATE field
-STRUCT BadMember
-   value AS DATE
-ENDSTRUCT
-
-#elif STRUCT_INVALID == 7
-// unsupported ARRAY field
-STRUCT BadMember
-   value AS ARRAY
-ENDSTRUCT
-
-#elif STRUCT_INVALID == 8
-// unsupported HASH field
-STRUCT BadMember
-   value AS HASH
-ENDSTRUCT
-
-#elif STRUCT_INVALID == 9
-// unsupported CODEBLOCK field
-STRUCT BadMember
-   value AS CODEBLOCK
-ENDSTRUCT
-
-#elif STRUCT_INVALID == 10
-// unsupported OBJECT field
-STRUCT BadMember
-   value AS OBJECT
-ENDSTRUCT
-
-#elif STRUCT_INVALID == 11
-// unsupported ANY field
-STRUCT BadMember
-   value AS ANY
-ENDSTRUCT
-
-#elif STRUCT_INVALID == 12
-// unsupported PSZ field
-STRUCT BadMember
-   value AS PSZ
-ENDSTRUCT
-
 #elif STRUCT_INVALID == 13
 // invalid field dimension 0
 STRUCT BadSize
@@ -511,29 +722,6 @@ STATIC PROCEDURE InvalidCase()
    a := b
    RETURN
 
-#elif STRUCT_INVALID == 18
-// STRUCT assigned to ANY
-STATIC PROCEDURE InvalidCase()
-   LOCAL a AS PointRecord
-   LOCAL b AS ANY
-   b := a
-   RETURN
-
-#elif STRUCT_INVALID == 19
-// ANY assigned to STRUCT
-STATIC PROCEDURE InvalidCase()
-   LOCAL a AS PointRecord
-   LOCAL b AS ANY
-   a := b
-   RETURN
-
-#elif STRUCT_INVALID == 20
-// structure in array
-STATIC PROCEDURE InvalidCase()
-   LOCAL a AS PointRecord
-   LOCAL b := { a }
-   RETURN
-
 #elif STRUCT_INVALID == 21
 // unknown field
 STATIC PROCEDURE InvalidCase()
@@ -563,32 +751,9 @@ STATIC PROCEDURE InvalidCase()
    RETURN
 
 #elif STRUCT_INVALID == 25
-// static structure
+// static structure with an initializer that is not a constant
 STATIC PROCEDURE InvalidCase()
-   STATIC a AS PointRecord
-   RETURN
-
-#elif STRUCT_INVALID == 26
-// structure result of a method
-CREATE CLASS BadOwner
-   METHOD Point()
-ENDCLASS
-
-METHOD Point() AS PointRecord CLASS BadOwner
-   LOCAL a AS PointRecord
-   RETURN a
-
-#elif STRUCT_INVALID == 27
-// structure parameter by value
-STATIC PROCEDURE InvalidParameter( a AS PointRecord )
-   RETURN
-
-#elif STRUCT_INVALID == 28
-// structure in IIF
-STATIC PROCEDURE InvalidCase()
-   LOCAL a AS PointRecord
-   LOCAL b AS PointRecord
-   a := IIF( .T., a, b )
+   STATIC a AS PointRecord := s_MakePoint( 1, 2 )
    RETURN
 
 #elif STRUCT_INVALID == 29
@@ -596,14 +761,6 @@ STATIC PROCEDURE InvalidCase()
 STATIC PROCEDURE InvalidCase()
    LOCAL a AS PointRecord
    a := CAST( 1 AS PointRecord )
-   RETURN
-
-#elif STRUCT_INVALID == 30
-// captured structure
-STATIC PROCEDURE InvalidCase()
-   LOCAL a AS PointRecord
-   LOCAL b := {|| a.x }
-   QOut( Eval( b ) )
    RETURN
 
 #elif STRUCT_INVALID == 31
@@ -666,7 +823,7 @@ STATIC PROCEDURE BadPointer()
 #endif
 
 #elif STRUCT_INVALID == 38
-// different structure types passed by value to a DLL
+// structures passed to a DLL without @
 #if OS_WINDOWS
 STATIC PROCEDURE BadValue()
    LOCAL a AS FileStamp
@@ -678,7 +835,7 @@ STATIC PROCEDURE BadValue()
 #endif
 
 #elif STRUCT_INVALID == 39
-// different structure type assigned to a field
+// whole nested structure field assigned
 STATIC PROCEDURE InvalidCase()
    LOCAL a AS TestPacket
    LOCAL b AS ScalarFields
@@ -686,7 +843,7 @@ STATIC PROCEDURE InvalidCase()
    RETURN
 
 #elif STRUCT_INVALID == 40
-// different structure type assigned to an array element
+// whole structure element of an array field assigned
 STATIC PROCEDURE InvalidCase()
    LOCAL a AS TestPacket
    LOCAL b AS ScalarFields
@@ -717,21 +874,6 @@ STATIC PROCEDURE InvalidCase()
    a := s_MakePoint( 1, 2 )
    RETURN
 
-#elif STRUCT_INVALID == 45
-// structure result assigned to ANY
-STATIC PROCEDURE InvalidCase()
-   LOCAL a := s_MakePoint( 1, 2 )
-   QOut( a )
-   RETURN
-
-#elif STRUCT_INVALID == 46
-// structure result with an ANY argument by @ to a typed parameter
-STATIC PROCEDURE InvalidCase()
-   LOCAL a AS PointRecord
-   LOCAL b := 1
-   a := s_MakePoint( @b, 2 )
-   RETURN
-
 #elif STRUCT_INVALID == 47
 // structure result of a DLL function
 #if OS_WINDOWS
@@ -739,6 +881,60 @@ DLL FUNCTION BadStamp() AS FileStamp FROM GetTickCount LIB "kernel32.dll"
 #else
 #error This case requires a Windows DLL
 #endif
+
+#elif STRUCT_INVALID == 49
+// different structure type as a parameter
+STATIC PROCEDURE InvalidCase()
+   LOCAL a AS TestPacket
+   QOut( s_PointSum( a ) )
+   RETURN
+
+#elif STRUCT_INVALID == 52
+// number assigned to a CHAR text field
+STATIC PROCEDURE InvalidCase()
+   LOCAL a AS TextRecord
+   a.firm := 1
+   RETURN
+
+#elif STRUCT_INVALID == 53
+// CHAR outside a STRUCT field
+STATIC PROCEDURE InvalidCase()
+   LOCAL a AS CHAR
+   RETURN
+
+#elif STRUCT_INVALID == 54
+// text assigned to a single CHAR byte
+STATIC PROCEDURE InvalidCase()
+   LOCAL a AS TextRecord
+   a.letter := "A"
+   RETURN
+
+#elif STRUCT_INVALID == 55
+// structure with a STRING field as a DLL parameter
+#if OS_WINDOWS
+DLL FUNCTION BadPerson( person AS Person ) AS INT32 FROM GetTickCount LIB "kernel32.dll"
+#else
+#error This case requires a Windows DLL
+#endif
+
+#elif STRUCT_INVALID == 56
+// structure with a STRING field passed by @ to a DLL
+#if OS_WINDOWS
+STATIC PROCEDURE InvalidCase()
+   LOCAL a AS Person
+   LOCAL b AS SystemStamp
+   ToSystemStamp( @a, @b )
+   RETURN
+#else
+#error This case requires the Windows DLL declaration
+#endif
+
+#elif STRUCT_INVALID == 57
+// number assigned to a STRING field
+STATIC PROCEDURE InvalidCase()
+   LOCAL a AS Person
+   a.name := 1
+   RETURN
 #endif
 
 

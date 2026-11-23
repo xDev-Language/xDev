@@ -77,6 +77,9 @@ static_assert( offsetof( X_CALL_CTX, argc ) == 8, "X_CALL_CTX: nieoczekiwany ukl
 static_assert( offsetof( X_CALL_CTX, result ) == 16, "X_CALL_CTX: nieoczekiwany uklad pol" );
 static_assert( offsetof( X_CALL_CTX, self ) == 24, "X_CALL_CTX: nieoczekiwany uklad pol" );
 static_assert( offsetof( X_CALL_CTX, methodContext ) == 32, "X_CALL_CTX: nieoczekiwany uklad pol" );
+static_assert( sizeof( X_STRUCT_TYPE ) == 48, "X_STRUCT_TYPE: nieoczekiwany rozmiar" );
+static_assert( offsetof( X_STRUCT_TYPE, size ) == 8, "X_STRUCT_TYPE: nieoczekiwany uklad pol" );
+static_assert( offsetof( X_STRUCT_TYPE, itemCount ) == 40, "X_STRUCT_TYPE: nieoczekiwany uklad pol" );
 
 static std::string s_key( const std::string &name );
 
@@ -124,7 +127,10 @@ static bool s_itemStaticType( X_DECL_TYPE type )
    if( type == X_DECL_TYPE::ANY || type == X_DECL_TYPE::OBJECT || type == X_DECL_TYPE::ARRAY )
       return true;
 
-   return type == X_DECL_TYPE::CODEBLOCK || type == X_DECL_TYPE::DATE || type == X_DECL_TYPE::HASH;
+   if( type == X_DECL_TYPE::CODEBLOCK || type == X_DECL_TYPE::DATE || type == X_DECL_TYPE::HASH )
+      return true;
+
+   return type == X_DECL_TYPE::STRUCT;
 }
 
 /* ---------------------------------------------------------------------------------------------
@@ -144,6 +150,7 @@ struct X_LLVM::IMPL
       const X_EXPR *initializer = nullptr;
       llvm::GlobalVariable *storage = nullptr;
       const std::vector<X_EXPR_PTR> *dimensions = nullptr;
+      std::string structName; /* STATIC AS Name of a STRUCT: a new STRUCT at module start */
    };
 
    struct NATIVE_VALUE
@@ -253,6 +260,7 @@ struct X_LLVM::IMPL
    std::unordered_map<std::string, NATIVE_VALUE> nativeLocals;
    std::unordered_map<std::string, llvm::StructType *> nativeStructTypes;
    std::unordered_map<std::string, const X_STRUCT_DECL *> nativeStructDeclarations;
+   std::unordered_map<std::string, llvm::GlobalVariable *> structDescriptors;
    std::unordered_set<std::string> nativeDllNames;
    std::unordered_map<std::string, std::unordered_map<std::string, NATIVE_VALUE>> nativeStatics;
    std::vector<NATIVE_STATIC> nativeStaticSlots;
@@ -724,6 +732,9 @@ struct X_LLVM::IMPL
       if( declared == X_DECL_TYPE::DATE && !decl.init )
          slot->value.nType = X_IT_DATE;
 
+      if( declared == X_DECL_TYPE::STRUCT && !decl.init )
+         slot->structName = decl.declaredTypeName;
+
       slot->storage = staticGlobal( slot->value );
       names[key] = slot->storage;
       staticSlots.push_back( std::move( slot ) );
@@ -1100,21 +1111,13 @@ struct X_LLVM::IMPL
       Native values
       --------------------------------------------------------------------------------------------- */
 
-   /* The LLVM type of a native value: STRING is { ptr, len }, a STRUCT has its own type; nullptr for OBJECT */
+   /* The LLVM type of a native value: STRING is { ptr, len }; nullptr for OBJECT and STRUCT, which live in items */
    llvm::Type *nativeType( X_DECL_TYPE type, const std::string &typeName = {} )
    {
-      if( type == X_DECL_TYPE::OBJECT )
+      UNUSED( typeName );
+
+      if( type == X_DECL_TYPE::OBJECT || type == X_DECL_TYPE::STRUCT )
          return nullptr;
-
-      if( type == X_DECL_TYPE::STRUCT )
-      {
-         const auto found = nativeStructTypes.find( s_key( typeName ) );
-
-         if( found == nativeStructTypes.end() )
-            return nullptr;
-
-         return found->second;
-      }
 
       if( type == X_DECL_TYPE::STRING )
          return llvm::StructType::get( context, { ptrTy(), i64Ty() } );
@@ -1132,6 +1135,38 @@ struct X_LLVM::IMPL
       return nativeType( type );
    }
 
+   /* A field of an xDev value type lies in the STRUCT as an X_ITEM */
+   static bool itemField( X_DECL_TYPE type )
+   {
+      if( type == X_DECL_TYPE::ANY || type == X_DECL_TYPE::ARRAY || type == X_DECL_TYPE::HASH )
+         return true;
+
+      return type == X_DECL_TYPE::OBJECT || type == X_DECL_TYPE::CODEBLOCK || type == X_DECL_TYPE::DATE;
+   }
+
+   /* The layout of the fields of a STRUCT */
+   llvm::StructType *structLayout( const std::string &typeName )
+   {
+      const auto found = nativeStructTypes.find( s_key( typeName ) );
+
+      if( found == nativeStructTypes.end() )
+         return nullptr;
+
+      return found->second;
+   }
+
+   /* The LLVM type of one field without its array: a nested STRUCT lies in place, an xDev value is an X_ITEM */
+   llvm::Type *fieldType( X_DECL_TYPE type, const std::string &typeName )
+   {
+      if( type == X_DECL_TYPE::STRUCT )
+         return structLayout( typeName );
+
+      if( itemField( type ) )
+         return getItemType();
+
+      return nativeType( type, typeName );
+   }
+
    /* The fields of a STRUCT; a fixed array field is an LLVM array */
    bool structBody( const X_STRUCT_DECL &structure )
    {
@@ -1141,7 +1176,7 @@ struct X_LLVM::IMPL
 
       for( const X_STRUCT_FIELD &field : structure.fields )
       {
-         llvm::Type *type = nativeType( field.type, field.typeName );
+         llvm::Type *type = fieldType( field.type, field.typeName );
 
          if( !type )
          {
@@ -1183,6 +1218,123 @@ struct X_LLVM::IMPL
       }
 
       return true;
+   }
+
+   /* The offset of a place in a STRUCT layout, computed with the data layout of the target at emission */
+   llvm::Constant *layoutOffset( llvm::Type *layout, const std::vector<llvm::Constant *> &path )
+   {
+      llvm::Constant *null = llvm::ConstantPointerNull::get( llvm::cast<llvm::PointerType>( ptrTy() ) );
+      llvm::Constant *address = llvm::ConstantExpr::getGetElementPtr( layout, null, path );
+
+      return llvm::ConstantExpr::getPtrToInt( address, i64Ty() );
+   }
+
+   /* The offsets of the STRING and X_ITEM fields of a STRUCT, also in nested STRUCTs and array fields */
+   void fieldOffsets( llvm::Type *layout, const std::string &typeName, std::vector<llvm::Constant *> &path,
+                      std::vector<llvm::Constant *> &strings, std::vector<llvm::Constant *> &items )
+   {
+      const X_STRUCT_DECL &declaration = *nativeStructDeclarations.at( s_key( typeName ) );
+
+      for( size_t i = 0; i < declaration.fields.size(); ++i )
+      {
+         const X_STRUCT_FIELD &field = declaration.fields[i];
+         const uint64_t count = IIF( field.arrayCount != 0, field.arrayCount, 1 );
+
+         path.push_back( constant32( i ) );
+
+         for( uint64_t j = 0; j < count; ++j )
+         {
+            if( field.arrayCount != 0 )
+               path.push_back( constant64( j ) );
+
+            if( field.type == X_DECL_TYPE::STRUCT )
+               fieldOffsets( layout, field.typeName, path, strings, items );
+            else if( field.type == X_DECL_TYPE::STRING )
+               strings.push_back( layoutOffset( layout, path ) );
+            else if( itemField( field.type ) )
+               items.push_back( layoutOffset( layout, path ) );
+
+            if( field.arrayCount != 0 )
+               path.pop_back();
+         }
+
+         path.pop_back();
+      }
+   }
+
+   /* A constant array of offsets; NULL when there are none */
+   llvm::Constant *offsetTable( const std::vector<llvm::Constant *> &offsets, const std::string &name )
+   {
+      llvm::ArrayType *type = llvm::ArrayType::get( i64Ty(), offsets.size() );
+      const auto linkage = llvm::GlobalValue::PrivateLinkage;
+
+      if( offsets.empty() )
+         return llvm::ConstantPointerNull::get( llvm::cast<llvm::PointerType>( ptrTy() ) );
+
+      return new llvm::GlobalVariable( *module, type, true, linkage, llvm::ConstantArray::get( type, offsets ), name );
+   }
+
+   /* The X_STRUCT_TYPE of a STRUCT for the runtime, made once in the module; the name tells the types apart */
+   llvm::GlobalVariable *structDescriptor( const std::string &typeName )
+   {
+      const std::string key = s_key( typeName );
+      const auto found = structDescriptors.find( key );
+      const auto linkage = llvm::GlobalValue::PrivateLinkage;
+      llvm::StructType *type = llvm::StructType::get( context, { ptrTy(), i64Ty(), ptrTy(), i64Ty(), ptrTy(), i64Ty() } );
+      llvm::StructType *layout = structLayout( key );
+      std::vector<llvm::Constant *> path = { constant64( 0 ) };
+      std::vector<llvm::Constant *> strings;
+      std::vector<llvm::Constant *> items;
+      llvm::Constant *text;
+      llvm::Constant *name;
+      llvm::Constant *fields;
+      llvm::GlobalVariable *descriptor;
+
+      if( found != structDescriptors.end() )
+         return found->second;
+
+      fieldOffsets( layout, key, path, strings, items );
+
+      text = llvm::ConstantDataArray::getString( context, key );
+      name = new llvm::GlobalVariable( *module, text->getType(), true, linkage, text, "x.struct.name." + key );
+      fields = llvm::ConstantStruct::get( type, { name, layoutOffset( layout, { constant64( 1 ) } ),
+                                                  offsetTable( strings, "x.struct.strings." + key ),
+                                                  constant64( strings.size() ),
+                                                  offsetTable( items, "x.struct.items." + key ),
+                                                  constant64( items.size() ) } );
+      descriptor = new llvm::GlobalVariable( *module, type, true, linkage, fields, "x.struct.type." + key );
+      structDescriptors[key] = descriptor;
+
+      return descriptor;
+   }
+
+   /* A new STRUCT with zero fields in a fresh item */
+   llvm::Value *structNewItem( const std::string &typeName )
+   {
+      llvm::Value *item = freshItem( "struct.new" );
+
+      emitCall( runtime( "x_itemPutStruct", voidTy(), { ptrTy(), ptrTy() } ), { item, structDescriptor( typeName ) } );
+
+      return item;
+   }
+
+   /* The fields of the STRUCT in an item; an item without a STRUCT is error 3107 */
+   llvm::Value *structFields( llvm::Value *item )
+   {
+      llvm::Value *fields = emitCall( runtime( "x_structFields", ptrTy(), { ptrTy() } ), { item } );
+
+      nativeGuard( builder.CreateIsNotNull( fields ), 3107 );
+
+      return fields;
+   }
+
+   /* Is the item a STRUCT of this type? */
+   llvm::Value *isStruct( llvm::Value *value, const std::string &typeName )
+   {
+      llvm::Value *text = builder.CreateGlobalString( s_key( typeName ) );
+      llvm::Value *kind = emitCall( runtime( "x_structIs", i32Ty(), { ptrTy(), ptrTy() } ), { value, text } );
+
+      return builder.CreateICmpNE( kind, constant32( 0 ) );
    }
 
    /* The kind of a native box: 0x800 pointer, 0x400 string, 0x200 float, 0x100 unsigned, plus the bit width */
@@ -1397,42 +1549,23 @@ struct X_LLVM::IMPL
       boxStore( storage.box, value );
    }
 
-   /* A STRUCT variable lives in an alloca of the function, never in a box */
-   llvm::Value *structVariable( const X_EXPR &expr )
-   {
-      const auto found = nativeLocals.find( s_key( expr.text ) );
-
-      if( found == nativeLocals.end() || found->second.type != X_DECL_TYPE::STRUCT || found->second.box )
-      {
-         fail( expr.line, "STRUCT wymaga lokalnej zmiennej o statycznym magazynie" );
-         return nullptr;
-      }
-
-      return found->second.value;
-   }
-
    /* st.field[ n ]: n is checked against 1..N, the element address is zero-based */
    llvm::Value *structElement( const X_EXPR &expr )
    {
       const X_EXPR &field = *expr.args[0];
-      llvm::Value *base = nativeStructAddress( field );
-
-      if( !base )
-         return nullptr;
-
-      llvm::Type *containerType = nativeType( X_DECL_TYPE::STRUCT, field.containerTypeName );
-      const auto declaration = nativeStructDeclarations.find( s_key( field.containerTypeName ) );
-
-      if( !containerType || declaration == nativeStructDeclarations.end() )
-         return nullptr;
-
-      const X_STRUCT_FIELD &member = declaration->second->fields.at( field.structFieldIndex );
-      llvm::Type *elementType = nativeType( member.type, member.typeName );
-      llvm::Type *arrayType = llvm::ArrayType::get( elementType, member.arrayCount );
       llvm::Value *arrayAddress = nativeStructAddress( field );
 
       if( !arrayAddress )
          return nullptr;
+
+      const auto declaration = nativeStructDeclarations.find( s_key( field.containerTypeName ) );
+
+      if( declaration == nativeStructDeclarations.end() )
+         return nullptr;
+
+      const X_STRUCT_FIELD &member = declaration->second->fields.at( field.structFieldIndex );
+      llvm::Type *elementType = fieldType( member.type, member.typeName );
+      llvm::Type *arrayType = llvm::ArrayType::get( elementType, member.arrayCount );
 
       NATIVE_VALUE index = nativeExpression( *expr.args[1] );
 
@@ -1449,16 +1582,16 @@ struct X_LLVM::IMPL
       return builder.CreateInBoundsGEP( arrayType, arrayAddress, { constant64( 0 ), zeroBased } );
    }
 
-   /* The address of a STRUCT variable, of one of its fields or of an element of an array field */
+   /* The address of the fields of a STRUCT value, of one of its fields or of an element of an array field;
+      the item of a STRUCT value stays alive in a temporary until the end of the statement */
    llvm::Value *nativeStructAddress( const X_EXPR &expr )
    {
-      if( expr.kind == X_EXPR_KIND::NAME )
-         return structVariable( expr );
+      llvm::Value *item;
 
       if( expr.kind == X_EXPR_KIND::SEND && expr.structFieldAccess )
       {
          llvm::Value *base = nativeStructAddress( *expr.args[0] );
-         llvm::Type *type = nativeType( X_DECL_TYPE::STRUCT, expr.containerTypeName );
+         llvm::Type *type = structLayout( expr.containerTypeName );
 
          if( !base || !type )
             return nullptr;
@@ -1469,9 +1602,63 @@ struct X_LLVM::IMPL
       if( expr.kind == X_EXPR_KIND::INDEX && expr.structArrayIndex )
          return structElement( expr );
 
-      fail( expr.line, "odwolanie do STRUCT nie jest l-wartoscia" );
+      if( expr.type != X_DECL_TYPE::STRUCT )
+      {
+         fail( expr.line, "odwolanie do STRUCT nie jest l-wartoscia" );
+         return nullptr;
+      }
 
-      return nullptr;
+      item = expression( expr );
+      if( !item )
+         return nullptr;
+
+      return structFields( item );
+   }
+
+   /* A field as an item: an X_ITEM field is copied, or set by st:_field := value; any other field is native */
+   llvm::Value *structFieldItem( const X_EXPR &expr )
+   {
+      llvm::Value *address;
+      llvm::Value *value;
+      llvm::Value *item;
+
+      if( nativeType( expr.type, expr.typeName ) )
+         return nativeItem( nativeExpression( expr ) );
+
+      address = nativeStructAddress( expr );
+      if( !address )
+         return nullptr;
+
+      if( fieldSetter( expr ) )
+      {
+         value = expression( *expr.args[1] );
+         if( !value )
+            return nullptr;
+
+         emitCall( itemCopyFn(), { address, value } );
+         return value;
+      }
+
+      item = freshItem( "struct.field" );
+      emitCall( itemCopyFn(), { item, address } );
+
+      return item;
+   }
+
+   /* SClone( st.field ): a new STRUCT from the fields of a nested STRUCT */
+   llvm::Value *nestedClone( const X_EXPR &field )
+   {
+      llvm::FunctionCallee copy = runtime( "x_structCopy", voidTy(), { ptrTy(), ptrTy(), ptrTy() } );
+      llvm::Value *address = nativeStructAddress( field );
+      llvm::Value *result;
+
+      if( !address )
+         return nullptr;
+
+      result = freshItem( "struct.clone" );
+      emitCall( copy, { result, structDescriptor( field.typeName ), address } );
+
+      return result;
    }
 
    /* ---------------------------------------------------------------------------------------------
@@ -1826,7 +2013,7 @@ struct X_LLVM::IMPL
       if( !value )
          return nullptr;
 
-      if( resultType == X_DECL_TYPE::ANY || resultType == X_DECL_TYPE::STRUCT )
+      if( resultType == X_DECL_TYPE::ANY )
          return result;
 
       return nativeItem( { value, resultType } );
@@ -1844,8 +2031,9 @@ struct X_LLVM::IMPL
       llvm::Value *args;
       llvm::Value *result;
 
-      if( isTyped && typed->second.result == X_DECL_TYPE::STRUCT && !directNativeCall( expr ) )
-         return IIF( structResultCall( expr ), typedCall( expr, typed->second.result ), nullptr );
+      /* SClone( st.field ) copies a nested STRUCT: constitution part II, Structures */
+      if( key == "SCLONE" && expr.type == X_DECL_TYPE::STRUCT && expr.args.size() == 1 && nestedStruct( *expr.args[0] ) )
+         return nestedClone( *expr.args[0] );
 
       if( isTyped && directNativeCall( expr ) )
          return typedCall( expr, typed->second.result );
@@ -3614,12 +3802,6 @@ struct X_LLVM::IMPL
       if( !value.value )
          return nullptr;
 
-      if( value.type == X_DECL_TYPE::STRUCT )
-      {
-         fail( srcLine, "STRUCT nie moze byc opakowany jako X_ITEM" );
-         return nullptr;
-      }
-
       if( value.type == X_DECL_TYPE::PSZ )
          return nativeItem( nativeConvert( value, { X_DECL_TYPE::STRING } ) );
 
@@ -4023,13 +4205,22 @@ struct X_LLVM::IMPL
       return !expr.text.empty() && expr.text[0] == '_';
    }
 
-   /* STRUCT:field or an element of a STRUCT array field */
+   /* STRUCT:field or an element of a STRUCT array field; a fixed array field as a whole is no value */
    static bool fieldRead( const X_EXPR &expr )
    {
       if( expr.kind == X_EXPR_KIND::INDEX )
          return expr.structArrayIndex;
 
-      return expr.kind == X_EXPR_KIND::SEND && expr.structFieldAccess && expr.type != X_DECL_TYPE::ARRAY;
+      if( expr.kind != X_EXPR_KIND::SEND || !expr.structFieldAccess )
+         return false;
+
+      return expr.type != X_DECL_TYPE::ARRAY || expr.fixedArrayCount == 0;
+   }
+
+   /* A STRUCT that lies in the fields of another STRUCT: a field or an element of an array field */
+   static bool nestedStruct( const X_EXPR &expr )
+   {
+      return expr.type == X_DECL_TYPE::STRUCT && ( expr.structFieldAccess || expr.structArrayIndex );
    }
 
    /* A number, a logical and a CAST have a native type of their own */
@@ -4064,31 +4255,82 @@ struct X_LLVM::IMPL
       return nativeConvert( value, *expr.conversion );
    }
 
-   /* STRUCT:_field := value stores the converted value and gives it */
-   NATIVE_VALUE nativeFieldStore( const X_EXPR &expr )
+   /* field[ N ] AS CHAR := text copies the text and its zero; a longer text or a zero byte is error 3105 */
+   NATIVE_VALUE nativeTextStore( const X_EXPR &expr )
    {
       llvm::Value *address = nativeStructAddress( expr );
       NATIVE_VALUE value = nativeExpression( *expr.args[1] );
+      llvm::FunctionCallee store = runtime( "x_structTextStore", i32Ty(), { ptrTy(), i64Ty(), ptrTy(), i64Ty() } );
+      llvm::Value *data;
+      llvm::Value *length;
+      llvm::Value *stored;
+
+      if( !address || !value.value )
+         return {};
+
+      data = builder.CreateExtractValue( value.value, 0 );
+      length = builder.CreateExtractValue( value.value, 1 );
+      stored = emitCall( store, { address, constant64( expr.fixedArrayCount ), data, length } );
+      nativeGuard( builder.CreateICmpNE( stored, constant32( 0 ) ), 3105 );
+
+      return value;
+   }
+
+   /* field[ N ] AS CHAR as a STRING: the bytes before the first zero */
+   NATIVE_VALUE nativeTextLoad( const X_EXPR &expr )
+   {
+      llvm::Value *address = nativeStructAddress( expr );
+      llvm::FunctionCallee length = runtime( "x_structTextLength", i64Ty(), { ptrTy(), i64Ty() } );
+      llvm::FunctionCallee put = runtime( "x_itemPutCL", ptrTy(), { ptrTy(), ptrTy(), i64Ty() } );
+      llvm::Value *item;
+      llvm::Value *count;
+
+      if( !address )
+         return {};
+
+      item = freshItem( "struct.text" );
+      count = emitCall( length, { address, constant64( expr.fixedArrayCount ) } );
+      emitCall( put, { item, address, count } );
+
+      return nativeUnbox( item, X_DECL_TYPE::STRING, false );
+   }
+
+   /* STRUCT:_field := value stores the converted value and gives it */
+   NATIVE_VALUE nativeFieldStore( const X_EXPR &expr )
+   {
+      llvm::Value *address;
+      NATIVE_VALUE value;
       llvm::Type *type = nativeType( expr.type, expr.typeName );
 
+      if( expr.structText )
+         return nativeTextStore( expr );
+
+      address = nativeStructAddress( expr );
+      value = nativeExpression( *expr.args[1] );
       if( !address || !type || !value.value )
          return {};
 
+      /* nativeStore() copies a STRING and counts the texts of a STRUCT */
       value = nativeConvert( value, { expr.type, false, false, true } );
-      builder.CreateStore( value.value, address );
+      nativeStore( { address, expr.type, nullptr, false, expr.typeName }, value.value );
 
       return value;
    }
 
    NATIVE_VALUE nativeFieldLoad( const X_EXPR &expr )
    {
-      llvm::Value *address = nativeStructAddress( expr );
+      llvm::Value *address;
       llvm::Type *type = nativeType( expr.type, expr.typeName );
 
+      if( expr.structText )
+         return nativeTextLoad( expr );
+
+      address = nativeStructAddress( expr );
       if( !address || !type )
          return {};
 
-      return { builder.CreateLoad( type, address ), expr.type, nullptr, false, expr.typeName };
+      /* nativeLoad() shares the text of a STRING field instead of copying it */
+      return nativeLoad( { address, expr.type, nullptr, false, expr.typeName } );
    }
 
    /* An expression without a native type: its item is unboxed into the conversion target or its own type */
@@ -4131,39 +4373,17 @@ struct X_LLVM::IMPL
       return { llvm::ConstantFP::get( doubleTy(), expr.number ), X_DECL_TYPE::FLOAT64 };
    }
 
-   /* A function with a STRUCT result is called natively; an ANY argument cannot go by @ to a typed parameter */
-   bool structResultCall( const X_EXPR &expr )
-   {
-      const NATIVE_FUNCTION &callee = nativeFunctions.at( s_key( expr.text ) );
-
-      for( size_t i = 0; i < expr.args.size() && i < callee.parameters.size(); ++i )
-      {
-         const bool reference = i < expr.argByReference.size() && expr.argByReference[i];
-
-         if( reference && callee.parameters[i] != X_DECL_TYPE::ANY && expr.args[i]->type == X_DECL_TYPE::ANY )
-         {
-            fail( expr.line, "wynik STRUCT: argument ANY nie moze przejsc przez @ do parametru z typem" );
-            return false;
-         }
-      }
-
-      return true;
-   }
-
-   /* A typed function is called directly, any other call is unboxed; a STRUCT result comes only from the
-      native entry, where an ANY argument is converted to its parameter */
+   /* A typed function is called directly, any other call is unboxed */
    NATIVE_VALUE nativeCallValue( const X_EXPR &expr )
    {
-      if( !directNativeCall( expr ) && expr.type == X_DECL_TYPE::STRUCT && !structResultCall( expr ) )
-         return {};
-
-      if( !directNativeCall( expr ) && expr.type != X_DECL_TYPE::STRUCT )
+      if( !directNativeCall( expr ) )
          return nativeUnbox( callExpression( expr ), expr.type, false );
 
       const NATIVE_FUNCTION &callee = nativeFunctions.at( s_key( expr.text ) );
       llvm::Value *scratch = freshItem( "native.call.context.result" );
+      llvm::Value *value = nativeCall( expr, scratch );
 
-      return { nativeCall( expr, scratch ), callee.result, nullptr, false, callee.resultTypeName };
+      return { value, callee.result, nullptr, false, callee.resultTypeName };
    }
 
    /* Constants, a CAST and a CALL always give a value, checked by nativeExpression() */
@@ -6294,6 +6514,8 @@ struct X_LLVM::IMPL
          valid = tagIs( loadTag( value ), X_IT_STRING );
       else if( target == X_DECL_TYPE::OBJECT )
          valid = isKindOf( value, expr.conversionClass );
+      else if( target == X_DECL_TYPE::STRUCT )
+         valid = isStruct( value, expr.conversionStruct );
       else if( checkedValueType( target ) )
          valid = isValueType( value, target );
       else
@@ -6491,6 +6713,9 @@ struct X_LLVM::IMPL
       if( scalarType( expr ) != STATIC_TYPE::UNKNOWN )
          return boxedScalar( expr );
 
+      if( fieldRead( expr ) || fieldSetter( expr ) )
+         return structFieldItem( expr );
+
       switch( expr.kind )
       {
       case X_EXPR_KIND::NIL:    return nilItem();
@@ -6578,16 +6803,16 @@ struct X_LLVM::IMPL
       return true;
    }
 
-   /* An item local starts with its INIT, its dimensions, an empty date or NIL */
+   /* An item local starts with its INIT, its dimensions, an empty date, a new STRUCT or NIL */
    bool itemLocal( const X_LOCAL_DECL &decl, const std::string &key, X_DECL_TYPE declared )
    {
       const size_t first = itemSlots.size();
-      const bool initialized = decl.init || !decl.dimensions.empty();
+      const bool initialized = decl.init || !decl.dimensions.empty() || declared == X_DECL_TYPE::STRUCT;
       llvm::Value *slot = locals.at( key );
       STATIC_TYPE type = STATIC_TYPE::NIL;
       llvm::Value *value = nullptr;
 
-      if( !decl.dimensions.empty() || declared == X_DECL_TYPE::DATE )
+      if( !decl.dimensions.empty() || declared == X_DECL_TYPE::DATE || declared == X_DECL_TYPE::STRUCT )
          type = STATIC_TYPE::UNKNOWN;
       else if( decl.init )
          type = expressionType( *decl.init );
@@ -6600,6 +6825,8 @@ struct X_LLVM::IMPL
          value = dimensionExpression( decl.dimensions );
       else if( declared == X_DECL_TYPE::DATE )
          value = emptyDateItem();
+      else if( declared == X_DECL_TYPE::STRUCT )
+         value = structNewItem( decl.declaredTypeName );
 
       if( initialized && value == nullptr )
          return false;
@@ -8175,14 +8402,6 @@ struct X_LLVM::IMPL
          return true;
       }
 
-      if( escaping.count( key ) && declared == X_DECL_TYPE::STRUCT )
-      {
-         const char *message = "blad wewnetrzny: niedozwolone przechwycenie STRUCT po analizie semantycznej";
-
-         fail( symbol.declaration->line, message );
-         return false;
-      }
-
       if( escaping.count( key ) )
       {
          box = freshNativeBox( declared, "native.local." + key );
@@ -8275,8 +8494,9 @@ struct X_LLVM::IMPL
    void typedParameter( const X_FUNCTION &fn, const NATIVE_FUNCTION &function, size_t i, const NAME_SET &escaping )
    {
       const X_DECL_TYPE declared = function.parameters[i];
+      const std::string &typeName = function.parameterTypeNames[i];
       const std::string key = s_key( fn.params[i] );
-      llvm::AllocaInst *slot = zeroedLocal( nativeType( declared ), "native.param." + fn.params[i] );
+      llvm::AllocaInst *slot = zeroedLocal( nativeType( declared, typeName ), "native.param." + fn.params[i] );
       size_t position = 1;
       llvm::Value *reference;
       llvm::Value *own;
@@ -8289,6 +8509,7 @@ struct X_LLVM::IMPL
       }
 
       reference = currentFunc->getArg( position + 1 );
+
       if( escaping.count( key ) )
       {
          own = freshNativeBox( declared, "native.param.box." + fn.params[i] );
@@ -8377,6 +8598,10 @@ struct X_LLVM::IMPL
 
       bindParameter( slot, i );
       locals[paramKey] = slot;
+
+      /* A STRUCT parameter, also from another module, gets a STRUCT of its type: constitution part II, Structures */
+      if( declared != fn.paramTypes.end() && declared->second == X_DECL_TYPE::STRUCT )
+         nativeGuard( isStruct( localStorage( slot ), fn.paramTypeNames.at( paramKey ) ), 3107 );
 
       if( typedFunction || declared == fn.paramTypes.end() || nativeType( declared->second ) == nullptr )
          return true;
@@ -8560,7 +8785,7 @@ struct X_LLVM::IMPL
       --------------------------------------------------------------------------------------------- */
 
    /* Argument i of a wrapper: the native value and its box as the reference, NULL when it is passed by
-      value. A STRUCT cannot come from an item */
+      value. A STRUCT of a DLL cannot come from an item */
    void wrapperArgument( const NATIVE_FUNCTION &function, size_t i, bool dll, VALUES &arguments )
    {
       const X_DECL_TYPE type = function.parameters[i];
@@ -8575,6 +8800,7 @@ struct X_LLVM::IMPL
       if( type == X_DECL_TYPE::ANY )
          return;
 
+      /* A DLL takes a STRUCT by @st only; the call never happens */
       if( type == X_DECL_TYPE::STRUCT )
       {
          nativeGuard( builder.getFalse(), 3107 );
@@ -8639,11 +8865,8 @@ struct X_LLVM::IMPL
       for( size_t i = 0; i < function.parameters.size(); ++i )
          wrapperArgument( function, i, fn.isDll, arguments );
 
-      if( function.result == X_DECL_TYPE::STRUCT )
-         nativeGuard( builder.getFalse(), 3107 );
-
       result = emitCall( function.function, arguments );
-      if( function.result != X_DECL_TYPE::ANY && function.result != X_DECL_TYPE::STRUCT )
+      if( function.result != X_DECL_TYPE::ANY )
       {
          item = nativeItem( { result, function.result } );
          if( !item )
@@ -8686,7 +8909,7 @@ struct X_LLVM::IMPL
       return true;
    }
 
-   /* The start value of an item static: its initializer, its dimensions or its constant */
+   /* The start value of an item static: its initializer, its dimensions, a new STRUCT or its constant */
    llvm::Value *staticValue( const STATIC_SLOT &slot )
    {
       if( slot.initializer )
@@ -8694,6 +8917,9 @@ struct X_LLVM::IMPL
 
       if( slot.dimensions )
          return dimensionExpression( *slot.dimensions );
+
+      if( !slot.structName.empty() )
+         return structNewItem( slot.structName );
 
       return constantItem( slot.value );
    }
@@ -9033,7 +9259,7 @@ struct X_LLVM::IMPL
       bool supported = true;
    };
 
-   /* OBJECT, ARRAY, CODEBLOCK, DATE and HASH stay items: a function that has them has no native entry */
+   /* OBJECT, ARRAY, CODEBLOCK, DATE, HASH and STRUCT stay items: a function that has them has no native entry */
    static bool itemOnlyType( X_DECL_TYPE type )
    {
       switch( type )
@@ -9042,8 +9268,9 @@ struct X_LLVM::IMPL
       case X_DECL_TYPE::ARRAY:
       case X_DECL_TYPE::CODEBLOCK:
       case X_DECL_TYPE::DATE:
-      case X_DECL_TYPE::HASH: return true;
-      default:                return false;
+      case X_DECL_TYPE::HASH:
+      case X_DECL_TYPE::STRUCT: return true;
+      default:                  return false;
       }
    }
 
@@ -9060,7 +9287,7 @@ struct X_LLVM::IMPL
       signature.parameters.push_back( type );
       signature.typeNames.push_back( typeName );
 
-      if( itemOnlyType( type ) )
+      if( itemOnlyType( type ) && !( fn.isDll && type == X_DECL_TYPE::STRUCT ) )
       {
          signature.supported = false;
          return true;
