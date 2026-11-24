@@ -9616,7 +9616,7 @@ struct X_LLVM::IMPL
    }
 
    /* REQUEST name: the anchor x.request.NAME keeps the function in the link */
-   void requestAnchor( const std::string &name, std::vector<llvm::Constant *> &roots )
+   void requestAnchor( const std::string &name, std::vector<llvm::GlobalValue *> &roots )
    {
       const auto linkage = llvm::GlobalValue::LinkOnceODRLinkage;
       const std::string anchorName = "x.request." + name;
@@ -9634,7 +9634,7 @@ struct X_LLVM::IMPL
    }
 
    void requestStatements( const std::vector<X_STMT> &body, std::unordered_set<std::string> &requested,
-                           std::vector<llvm::Constant *> &roots )
+                           std::vector<llvm::GlobalValue *> &roots )
    {
       for( const X_STMT &stmt : body )
       {
@@ -9646,28 +9646,19 @@ struct X_LLVM::IMPL
       }
    }
 
-   /* The REQUEST statements of the module; the anchors are kept by llvm.used */
+   /* The REQUEST statements of the module; the anchors join llvm.used, which may already keep the sections */
    void collectRequests( const X_PROGRAM &program )
    {
-      const auto linkage = llvm::GlobalValue::AppendingLinkage;
       std::unordered_set<std::string> requested;
-      std::vector<llvm::Constant *> roots;
-      llvm::ArrayType *type;
-      llvm::Constant *list;
-      llvm::GlobalVariable *used;
+      std::vector<llvm::GlobalValue *> roots;
 
       requestStatements( program.statements, requested, roots );
 
       for( const X_FUNCTION &fn : program.functions )
          requestStatements( fn.body, requested, roots );
 
-      if( roots.empty() )
-         return;
-
-      type = llvm::ArrayType::get( ptrTy(), roots.size() );
-      list = llvm::ConstantArray::get( type, roots );
-      used = new llvm::GlobalVariable( *module, type, false, linkage, list, "llvm.used" );
-      used->setSection( "llvm.metadata" );
+      if( !roots.empty() )
+         llvm::appendToUsed( *module, roots );
    }
 
    /* Every class gets its registrar; then the direct methods are collected and the registrars generated */

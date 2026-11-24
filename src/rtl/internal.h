@@ -730,6 +730,7 @@ int x_dateJulianDOW( long julian );
 const char *x_dateCMonth( int month );
 const char *x_dateCDOW( int day );
 
+extern int x_setExact;
 extern int x_setFixed;
 extern int x_setExclusive;
 extern int x_setDeleted;

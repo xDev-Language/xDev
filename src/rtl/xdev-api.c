@@ -22,6 +22,7 @@
 #include "../../include/xdev/inkey.ch"
 
 #include <ctype.h>
+#include <float.h>
 #include <limits.h>
 #include <math.h>
 #include <stdio.h>
@@ -3841,10 +3842,11 @@ X_FUNC( IDLESLEEP )
    x_sysSleep( x_parnd( ctx, 1 ) );
 }
 
-// Return the largest number
-// Infinity( [l32BitOS] ) --> nLargestNumber
+// Return the largest FLOAT64 number
+// Infinity() --> nLargestNumber
 X_FUNC_ALIAS( INFINITY, XDEV_INFINITY )
 {
+   x_retnd( ctx, DBL_MAX );
 }
 
 // Extract a character from the keyboard buffer or a mouse event

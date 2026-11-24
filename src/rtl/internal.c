@@ -121,6 +121,7 @@ static const X_ERROR_DEF s_errorDefinitions[] = {
    { 2, 2, 1131, 0, "BASE", "Bound error", "array dimension" },
    { 2, 2, 1132, 0, "BASE", "Bound error", "array access" },
    { 2, 2, 1133, 0, "BASE", "Bound error", "array assign" },
+   { 2, 2, 1187, 0, "BASE", "Bound error", "hash position" },
    { 2, 1, 1070, 1, "BASE", "Argument error", "==" },
    { 2, 1, 1071, 1, "BASE", "Argument error", "=" },
    { 2, 1, 1072, 1, "BASE", "Argument error", "<>" },
@@ -1425,6 +1426,7 @@ const char *x_dateCDOW( int day )
    return IIF( day >= 1 && day <= 7, names[day - 1], "" );
 }
 
+int x_setExact; /* SET EXACT: = compares whole texts */
 int x_setFixed;
 int x_setExclusive = 1;
 int x_setDeleted;
@@ -5121,6 +5123,7 @@ void x_setSet( X_CALL_CTX *ctx )
 {
    switch( x_parni( ctx, 1 ) )
    {
+   case _SET_EXACT:
    case _SET_FIXED:
    case _SET_EXCLUSIVE:
    case _SET_DELETED:
@@ -5137,6 +5140,7 @@ void x_setSet( X_CALL_CTX *ctx )
 
       switch( x_parni( ctx, 1 ) )
       {
+      case _SET_EXACT: setting = &x_setExact; break;
       case _SET_FIXED: setting = &x_setFixed; break;
       case _SET_EXCLUSIVE: setting = &x_setExclusive; break;
       case _SET_DELETED: setting = &x_setDeleted; break;

@@ -3428,7 +3428,7 @@ bool X_PARSER::atFunctionEnd() const
    if( is( TOK_EOF ) || atCallback() || atDllFunction() || atMethodWord() )
       return true;
 
-   if( at( "FUNCTION" ) || at( "PROCEDURE" ) || at( "INIT" ) || at( "ENUM" ) )
+   if( at( "FUNCTION" ) || at( "PROCEDURE" ) || at( "INIT" ) || at( "ENUM" ) || at( "STRUCT" ) )
       return true;
 
    if( peek( 1 ) != TOK_EOF )

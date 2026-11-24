@@ -14,9 +14,6 @@
 #include <math.h>
 #include <string.h>
 
-/* The value of x_getExact() */
-static int s_exact;
-
 /* ---------------------------------------------------------------------------------------------
    FOR loop
    --------------------------------------------------------------------------------------------- */
@@ -197,7 +194,7 @@ int x_switchMatch( const X_ITEM *value, const X_ITEM *label )
 /* SET EXACT for comparisons */
 int x_getExact( void )
 {
-   return s_exact;
+   return x_setExact;
 }
 
 /* ---------------------------------------------------------------------------------------------
